@@ -31,7 +31,84 @@
 #import "XRGPrefController.h"
 #import <sys/sysctl.h>
 
-@implementation XRGBackgroundView
+// Draws the window title (hostname or custom title) in glass mode. It lives directly in
+// the window's content view, unrotated, because the background view's bounds-rotation
+// trick no longer renders under current SDKs.
+@interface XRGTitleLabelView : NSView
+@property (nonatomic, copy) NSString *text;
+@property (nonatomic, strong) NSDictionary *attributes;
+@property (nonatomic) BOOL vertical;   // YES = text runs bottom-to-top in a narrow column
+@end
+
+@implementation XRGTitleLabelView
+
+- (NSView *)hitTest:(NSPoint)point {
+    return nil;   // let clicks and drags fall through to the window
+}
+
+- (void)drawRect:(NSRect)dirtyRect {
+    if (self.text.length == 0) return;
+
+    NSMutableDictionary *attrs = [self.attributes mutableCopy] ?: [NSMutableDictionary dictionary];
+    attrs[NSForegroundColorAttributeName] = [NSColor colorWithWhite:1.0 alpha:0.7];
+    NSFont *font = attrs[NSFontAttributeName] ?: [NSFont systemFontOfSize:11];
+    CGFloat lineHeight = ceil(font.ascender - font.descender);
+
+    NSRect b = self.bounds;
+    if (self.vertical) {
+        [NSGraphicsContext saveGraphicsState];
+        NSAffineTransform *t = [NSAffineTransform transform];
+        [t translateXBy:b.size.width yBy:0];
+        [t rotateByDegrees:90];
+        [t concat];
+        // In the rotated space, the label is b.height wide and b.width tall.
+        NSRect r = NSMakeRect(0, floor((b.size.width - lineHeight) / 2.0) - 1, b.size.height, lineHeight);
+        [self.text drawInRect:r withAttributes:attrs];
+        [NSGraphicsContext restoreGraphicsState];
+    }
+    else {
+        NSRect r = NSMakeRect(0, floor((b.size.height - lineHeight) / 2.0), b.size.width, lineHeight);
+        [self.text drawInRect:r withAttributes:attrs];
+    }
+}
+
+@end
+
+@implementation XRGBackgroundView {
+    XRGTitleLabelView *glassTitleLabel;
+}
+
+- (void)updateGlassTitleLabel {
+    NSView *content = parentWindow.contentView;
+    if (!content) return;
+
+    if (!glassTitleLabel) {
+        glassTitleLabel = [[XRGTitleLabelView alloc] initWithFrame:NSZeroRect];
+        [content addSubview:glassTitleLabel];
+    }
+
+    CGFloat border = [parentWindow borderWidth];
+    CGFloat titleSize = [appSettings textRectHeight];
+    NSRect cb = content.bounds;
+    BOOL vertical = [moduleManager graphOrientationVertical];
+
+    // Horizontal strips keep the title in a narrow column on the left;
+    // vertical stacks keep it in a row across the top.
+    NSRect frame = vertical
+        ? NSMakeRect(border, cb.size.height - border - titleSize, cb.size.width - 2 * border, titleSize)
+        : NSMakeRect(border, border, titleSize, cb.size.height - 2 * border);
+
+    NSString *title = [appSettings windowTitle];
+    NSString *text = (title.length > 0) ? title : self.hostname;
+
+    if (!NSEqualRects(glassTitleLabel.frame, frame)) glassTitleLabel.frame = frame;
+    glassTitleLabel.vertical = !vertical;
+    glassTitleLabel.attributes = [appSettings alignCenterAttributes];
+    if (![glassTitleLabel.text isEqualToString:text]) {
+        glassTitleLabel.text = text;
+    }
+    [glassTitleLabel setNeedsDisplay:YES];
+}
 
 - (void)awakeFromNib {
     [super awakeFromNib];
@@ -149,6 +226,11 @@
     if (!appSettings.glassAppearance) NSRectFill(titleRect);
     
     [gc setShouldAntialias:YES];
+
+    if (appSettings.glassAppearance) {
+        [self updateGlassTitleLabel];
+        return;
+    }
 
     NSString *title = [appSettings windowTitle];
     if (!title || [title isEqualToString:@""]) {
