@@ -121,9 +121,8 @@
     
     NSGraphicsContext *gc = [NSGraphicsContext currentContext];
     
-    [[appSettings graphBGColor] set];
     NSRect bounds = [self bounds];
-    CGContextFillRect(gc.CGContext, bounds);
+    [self fillGraphBackground];
 
     if ([self shouldDrawMiniGraph]) {
         [self drawMiniGraph];
@@ -297,7 +296,7 @@
             valueString = [NSString stringWithFormat:@"%3.1f%@", locationValue, units];
         }
 
-        [[appSettings graphFG1Color] set];
+        [[self graphFG1Color] set];
         if ([[XRGTemperatureMiner shared] isFanSensor:sensor]) {
             float min = 0;
             float max = [[XRGTemperatureMiner shared] maxSpeedForFan:sensor];
@@ -354,21 +353,21 @@
         float min = sensor1IsFan ? 0 : temperatureMin;
         float max = sensor1IsFan ? [[XRGTemperatureMiner shared] maxSpeedForFan:sensor1] : temperatureMax;
 
-		[self drawRangedGraphWithDataFromDataSet:sensor1.dataSet upperBound:max lowerBound:min inRect:graphRect flipped:NO filled:YES color:[appSettings graphFG1Color]];
+		[self drawRangedGraphWithDataFromDataSet:sensor1.dataSet upperBound:max lowerBound:min inRect:graphRect flipped:NO filled:YES color:[self graphFG1Color]];
     }
     
     if (sensor2.dataSet) {
         float min = sensor2IsFan ? 0 : temperatureMin;
         float max = sensor2IsFan ? [[XRGTemperatureMiner shared] maxSpeedForFan:sensor2] : temperatureMax;
 
-		[self drawRangedGraphWithDataFromDataSet:sensor2.dataSet upperBound:max lowerBound:min inRect:graphRect flipped:NO filled:NO color:[appSettings graphFG2Color]];
+		[self drawRangedGraphWithDataFromDataSet:sensor2.dataSet upperBound:max lowerBound:min inRect:graphRect flipped:NO filled:NO color:[self graphFG2Color]];
     }
     
     if (sensor3.dataSet) {
         float min = sensor3IsFan ? 0 : temperatureMin;
         float max = sensor3IsFan ? [[XRGTemperatureMiner shared] maxSpeedForFan:sensor3] : temperatureMax;
 
-		[self drawRangedGraphWithDataFromDataSet:sensor3.dataSet upperBound:max lowerBound:min inRect:graphRect flipped:NO filled:NO color:[appSettings graphFG3Color]];
+		[self drawRangedGraphWithDataFromDataSet:sensor3.dataSet upperBound:max lowerBound:min inRect:graphRect flipped:NO filled:NO color:[self graphFG3Color]];
     }
 }
 

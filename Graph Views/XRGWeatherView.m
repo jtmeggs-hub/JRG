@@ -660,9 +660,8 @@ NSInteger matchRegex(char *pattern, char *inString) {
     NSGraphicsContext *gc = [NSGraphicsContext currentContext];
 
     // first draw the background
-    [[appSettings graphBGColor] set];
     NSRect bounds = [self bounds];
-    CGContextFillRect(gc.CGContext, bounds);
+    [self fillGraphBackground];
     
     if ([self shouldDrawMiniGraph]) {
         [self drawMiniGraph];
@@ -721,7 +720,7 @@ NSInteger matchRegex(char *pattern, char *inString) {
 							   inRect:[self bounds] 
 							  flipped:NO 
 							   filled:YES 
-								color:[appSettings graphFG1Color]];
+								color:[self graphFG1Color]];
         
         // draw the secondary graph
         if ([appSettings secondaryWeatherGraph] != 0) {
@@ -738,7 +737,7 @@ NSInteger matchRegex(char *pattern, char *inString) {
 								   inRect:[self bounds] 
 								  flipped:NO 
 								   filled:NO 
-									color:[appSettings graphFG2Color]];
+									color:[self graphFG2Color]];
         }
     }
 

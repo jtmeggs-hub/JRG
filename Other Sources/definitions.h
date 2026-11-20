@@ -60,6 +60,7 @@ typedef struct network_interface_stats {
 #define XRG_stickyWindow				@"stickyWindow"
 #define XRG_checkForUpdates				@"checkForUpdates"
 #define XRG_dropShadow					@"dropShadow"
+#define XRG_glassAppearance				@"glassAppearance"
 #define XRG_windowTitle                 @"windowTitle"
 #define XRG_autoExpandGraph             @"autoExpandGraph"
 #define XRG_foregroundWhenExpanding     @"foregroundWhenExpanding"

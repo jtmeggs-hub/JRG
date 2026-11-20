@@ -93,9 +93,8 @@
 	
 	NSGraphicsContext *gc = [NSGraphicsContext currentContext];
 	
-    [[appSettings graphBGColor] set];
     NSRect bounds = [self bounds];
-    CGContextFillRect(gc.CGContext, bounds);
+    [self fillGraphBackground];
 
 #ifdef XRG_DEBUG
 	NSLog(@"In Graphics DrawRect.");
@@ -155,7 +154,7 @@
 		XRGDataSet *usedDataSet = [[XRGDataSet alloc] initWithContentsOfOtherDataSet:totalValues[i]];
 		[usedDataSet subtractOtherDataSetValues:freeValues[i]];
 		if ([usedDataSet max] > 0) {
-			[self drawGraphWithDataFromDataSet:usedDataSet maxValue:[totalValues[i] max] inRect:graphRect flipped:NO filled:YES color:[appSettings graphFG1Color]];
+			[self drawGraphWithDataFromDataSet:usedDataSet maxValue:[totalValues[i] max] inRect:graphRect flipped:NO filled:YES color:[self graphFG1Color]];
 		}
 		else {
 			[[appSettings backgroundColor] set];
@@ -165,10 +164,10 @@
 		// Device Utilization or CPU Wait
         BOOL drawUtilization = ([utilizationValues[i] max] > 0);
         if (drawUtilization) {
-            [self drawGraphWithDataFromDataSet:utilizationValues[i] maxValue:100 inRect:graphRect flipped:NO filled:NO color:[appSettings graphFG2Color]];
+            [self drawGraphWithDataFromDataSet:utilizationValues[i] maxValue:100 inRect:graphRect flipped:NO filled:NO color:[self graphFG2Color]];
         }
         else {
-            [self drawGraphWithDataFromDataSet:cpuWaitValues[i] maxValue:MAX([cpuWaitValues[i] max], 100) inRect:graphRect flipped:NO filled:NO color:[appSettings graphFG2Color]];
+            [self drawGraphWithDataFromDataSet:cpuWaitValues[i] maxValue:MAX([cpuWaitValues[i] max], 100) inRect:graphRect flipped:NO filled:NO color:[self graphFG2Color]];
         }
 		
 		// Draw the text

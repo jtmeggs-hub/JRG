@@ -99,9 +99,8 @@
     #endif
     textRectHeight = [appSettings textRectHeight];
     
-    [[appSettings graphBGColor] set];
     NSRect bounds = [self bounds];
-    CGContextFillRect(gc.CGContext, bounds);
+    [self fillGraphBackground];
     
     if ([self shouldDrawMiniGraph]) {
         [self drawMiniGraph:self.bounds];
@@ -112,9 +111,9 @@
     
     if ([appSettings showMemoryPagingGraph]) {
         NSColor *colors[3];
-        colors[0] = [appSettings graphFG1Color];
-        colors[1] = [appSettings graphFG2Color];
-        colors[2] = [appSettings graphFG3Color];
+        colors[0] = [self graphFG1Color];
+        colors[1] = [self graphFG2Color];
+        colors[2] = [self graphFG3Color];
         
         NSRect graphRect = NSMakeRect(0, 0, numSamples, graphSize.height);
     
@@ -141,17 +140,17 @@
 	tmpRect.origin.x   += 2;
 	tmpRect.size.width  = 8;
 	tmpRect.size.height = (max == 0) ? 0 : (CGFloat)[memoryMiner wiredBytes] / max * graphSize.height;
-	[[appSettings graphFG1Color] set];
+	[[self graphFG1Color] set];
 	NSRectFill(tmpRect);
 	
 	tmpRect.origin.y   += tmpRect.size.height;
 	tmpRect.size.height = (max == 0) ? 0 : (CGFloat)[memoryMiner activeBytes] / max * graphSize.height;
-	[[appSettings graphFG2Color] set];
+	[[self graphFG2Color] set];
 	NSRectFill(tmpRect);
 	
 	tmpRect.origin.y   += tmpRect.size.height;
 	tmpRect.size.height = (max == 0) ? 0 : (CGFloat)[memoryMiner inactiveBytes] / max * graphSize.height;
-	[[appSettings graphFG3Color] set];
+	[[self graphFG3Color] set];
 	NSRectFill(tmpRect);
 	
 	// Draw the swap info.
@@ -165,7 +164,7 @@
 	tmpRect.origin.x += 1;
 	tmpRect.size.width = 8;
 	tmpRect.size.height = ([memoryMiner totalSwap] == 0) ? 0 : (double)[memoryMiner usedSwap] / (double)[memoryMiner totalSwap] * graphSize.height;
-	[[appSettings graphFG1Color] set];
+	[[self graphFG1Color] set];
 	NSRectFill(tmpRect);
 
     // draw the text
@@ -223,24 +222,24 @@
 	
 	NSRect wiredRect = topBarRect;
 	wiredRect.size.width = (totalScale == 0) ? 0 : (CGFloat)[memoryMiner wiredBytes] / totalScale * topBarRect.size.width;
-	[[appSettings graphFG1Color] set];
+	[[self graphFG1Color] set];
 	NSRectFill(wiredRect);
 	
 	NSRect activeRect = topBarRect;
 	activeRect.origin.x = wiredRect.origin.x + wiredRect.size.width;
 	activeRect.size.width = (totalScale == 0) ? 0 : (CGFloat)[memoryMiner activeBytes] / totalScale * topBarRect.size.width;
-	[[appSettings graphFG2Color] set];
+	[[self graphFG2Color] set];
 	NSRectFill(activeRect);
 	
 	NSRect inactiveRect = topBarRect;
 	inactiveRect.origin.x = activeRect.origin.x + activeRect.size.width;
 	inactiveRect.size.width = (totalScale == 0) ? 0 : (CGFloat)[memoryMiner inactiveBytes] / totalScale * topBarRect.size.width;
-	[[appSettings graphFG3Color] set];
+	[[self graphFG3Color] set];
 	NSRectFill(inactiveRect);
 	
 	// Draw the swap info.
 	bottomBarRect.size.width *= (totalScale == 0) ? 0 : ((CGFloat)[memoryMiner usedSwap] / 1024.) / totalScale;
-	[[appSettings graphFG1Color] set];
+	[[self graphFG1Color] set];
 	NSRectFill(bottomBarRect);
 	
 	// draw the text

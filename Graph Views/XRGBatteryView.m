@@ -199,9 +199,8 @@
                                     textRectHeight * 2);
     
     // Clear the background
-    [[appSettings graphBGColor] set];
     NSRect bounds = [self bounds];
-    CGContextFillRect(gc.CGContext, bounds);
+    [self fillGraphBackground];
     
     NSMutableDictionary *wrapAttributes = [[appSettings alignLeftAttributes] mutableCopy];
     wrapAttributes[NSParagraphStyleAttributeName] = [wrapAttributes[NSParagraphStyleAttributeName] mutableCopy];
@@ -220,7 +219,7 @@
     maxWatts = MAX(maxWatts, 30);
     
     // draw the battery bar
-    [[appSettings graphFG1Color] set];
+    [[self graphFG1Color] set];
     if (self.batteryMiner.batteries.count) {
         percentRect.size.width = bounds.size.width * ((float)[self.batteryMiner chargePercent] / 100.);
 
@@ -233,7 +232,7 @@
     }
     
     // set graphFG2Color before drawing the triple bar for charging.
-    [[appSettings graphFG2Color] set];
+    [[self graphFG2Color] set];
     if (powerStatus == XRGBatteryStatusCharging) {
         NSRect chargingRect = NSMakeRect(percentRect.origin.x + percentRect.size.width, 
                                          percentRect.origin.y,
@@ -274,8 +273,8 @@
 		percentRect.size.height = topOfGraph;
 		
         if (percentRect.size.height > 0) {
-            [self drawGraphWithDataFromDataSet:self.batteryMiner.chargeWatts maxValue:maxWatts inRect:percentRect flipped:NO filled:YES color:[appSettings graphFG1Color]];
-            [self drawGraphWithDataFromDataSet:self.batteryMiner.dischargeWatts maxValue:maxWatts inRect:percentRect flipped:YES filled:YES color:[appSettings graphFG2Color]];
+            [self drawGraphWithDataFromDataSet:self.batteryMiner.chargeWatts maxValue:maxWatts inRect:percentRect flipped:NO filled:YES color:[self graphFG1Color]];
+            [self drawGraphWithDataFromDataSet:self.batteryMiner.dischargeWatts maxValue:maxWatts inRect:percentRect flipped:YES filled:YES color:[self graphFG2Color]];
         }
 	}
     [gc setShouldAntialias:YES];

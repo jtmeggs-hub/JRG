@@ -120,6 +120,7 @@
 	
     NSGraphicsContext *gc = [NSGraphicsContext currentContext]; 
     
+    if (!appSettings.glassAppearance) {
     // Draw the border
     [[appSettings borderColor] set];
     NSBezierPath *borderPath = [self outerPath];
@@ -137,6 +138,7 @@
     // Draw the title background
     [[appSettings backgroundColor] set];
     [[self innerPath] fill];
+    }
     
     // Draw the title
     int borderWidth = [parentWindow borderWidth];
@@ -144,7 +146,7 @@
                                   [self bounds].size.height - borderWidth - [appSettings textRectHeight],
                                   [self bounds].size.width - 2 * borderWidth,
                                   [appSettings textRectHeight]);
-    NSRectFill(titleRect);
+    if (!appSettings.glassAppearance) NSRectFill(titleRect);
     
     [gc setShouldAntialias:YES];
 

@@ -61,6 +61,16 @@
 
 - (void)fillRect:(NSRect)rect withColor:(NSColor *)color;
 
+// Fills the module background: a rounded glass card in glass mode (and clips
+// later drawing to it), or the classic flat graph background color.
+- (void)fillGraphBackground;
+
+// Graph colors for this module. In glass mode each module has its own cool palette;
+// in classic mode these return the user's saved colors.
+- (NSColor *)graphFG1Color;
+- (NSColor *)graphFG2Color;
+- (NSColor *)graphFG3Color;
+
 - (void)drawLeftText:(NSString *)leftText centerText:(NSString *)centerText rightText:(NSString *)rightText inRect:(CGRect)rect;
 
 - (BOOL)shouldDrawMiniGraph;

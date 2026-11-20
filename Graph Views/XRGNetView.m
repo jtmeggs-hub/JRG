@@ -108,9 +108,8 @@
 
     NSGraphicsContext *gc = [NSGraphicsContext currentContext];
     
-    [[appSettings graphBGColor] set];
     NSRect bounds = [self bounds];
-    CGContextFillRect(gc.CGContext, bounds);
+    [self fillGraphBackground];
 
     if ([self shouldDrawMiniGraph]) {
         [self drawMiniGraph:self.bounds];
@@ -132,14 +131,14 @@
 
     /* received data */
     if (netGraphMode == 0) {
-        [self drawGraphWithDataFromDataSet:self.miner.totalValues maxValue:max inRect:bounds flipped:(netGraphMode == 2) filled:YES color:[appSettings graphFG2Color]];
+        [self drawGraphWithDataFromDataSet:self.miner.totalValues maxValue:max inRect:bounds flipped:(netGraphMode == 2) filled:YES color:[self graphFG2Color]];
     }
     else {
-        [self drawGraphWithDataFromDataSet:self.miner.rxValues maxValue:max inRect:bounds flipped:(netGraphMode == 2) filled:YES color:[appSettings graphFG2Color]];
+        [self drawGraphWithDataFromDataSet:self.miner.rxValues maxValue:max inRect:bounds flipped:(netGraphMode == 2) filled:YES color:[self graphFG2Color]];
     }
 
     /* sent data */
-    [self drawGraphWithDataFromDataSet:self.miner.txValues maxValue:max inRect:bounds flipped:(netGraphMode == 1) filled:YES color:[appSettings graphFG1Color]];
+    [self drawGraphWithDataFromDataSet:self.miner.txValues maxValue:max inRect:bounds flipped:(netGraphMode == 1) filled:YES color:[self graphFG1Color]];
 
     [gc setShouldAntialias:YES];
 

@@ -152,6 +152,7 @@ void sleepNotification(void *refcon, io_service_t service, natural_t messageType
     appDefs[XRG_stickyWindow] = @"YES";
     appDefs[XRG_checkForUpdates] = @"YES";
     appDefs[XRG_dropShadow] = @"NO";
+    appDefs[XRG_glassAppearance] = @"YES";
     appDefs[XRG_autoExpandGraph] = @"YES";
     appDefs[XRG_foregroundWhenExpanding] = @"NO";
     appDefs[XRG_showSummary] = @"YES";
@@ -209,6 +210,7 @@ void sleepNotification(void *refcon, io_service_t service, natural_t messageType
     [self.appSettings setWindowLevel:             [defs[XRG_windowLevel] intValue]];
     [self.appSettings setCheckForUpdates:         [defs[XRG_checkForUpdates] boolValue]];
     [self.appSettings setDropShadow:              [defs[XRG_dropShadow] boolValue]];
+    [self.appSettings setGlassAppearance:         [defs[XRG_glassAppearance] boolValue]];
     [self.appSettings setWindowTitle:             defs[XRG_windowTitle]];
     [self.appSettings setAutoExpandGraph:         [defs[XRG_autoExpandGraph] boolValue]];
     [self.appSettings setForegroundWhenExpanding: [defs[XRG_foregroundWhenExpanding] boolValue]];
@@ -275,8 +277,8 @@ void sleepNotification(void *refcon, io_service_t service, natural_t messageType
     //Set the background color to clear
     [self setBackgroundColor:[NSColor clearColor]];
 
-    //set the transparency close to one.
-    [self setAlphaValue:0.99];
+    //set the transparency close to one. (Glass needs a fully opaque window alpha to sample the backdrop.)
+    [self setAlphaValue:self.appSettings.glassAppearance ? 1.0 : 0.99];
 
     //turn off opaqueness
     [self setOpaque:NO];
@@ -896,6 +898,48 @@ void sleepNotification(void *refcon, io_service_t service, natural_t messageType
 
 
 ///// Action Helpers /////
+
+// Places a Liquid Glass layer behind the graph views (macOS 26+), falling back to a
+// frosted blur on older systems. Does nothing when the classic appearance is selected.
+- (void)installGlassBackground {
+    if (!self.appSettings.glassAppearance) return;
+
+    NSView *content = self.contentView;
+    NSView *glass = nil;
+    CGFloat radius = 18.0;
+
+    if (@available(macOS 26.0, *)) {
+        NSGlassEffectView *glassView = [[NSGlassEffectView alloc] initWithFrame:content.bounds];
+        glassView.cornerRadius = radius;
+        glassView.style = NSGlassEffectViewStyleRegular;
+        glassView.contentView = [[NSView alloc] initWithFrame:content.bounds];
+        glass = glassView;
+    }
+    else {
+        NSVisualEffectView *blurView = [[NSVisualEffectView alloc] initWithFrame:content.bounds];
+        blurView.material = NSVisualEffectMaterialHUDWindow;
+        blurView.blendingMode = NSVisualEffectBlendingModeBehindWindow;
+        blurView.state = NSVisualEffectStateActive;
+        blurView.wantsLayer = YES;
+        blurView.layer.cornerRadius = radius;
+        blurView.layer.masksToBounds = YES;
+        glass = blurView;
+    }
+
+    glass.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+    [content addSubview:glass positioned:NSWindowBelow relativeTo:nil];
+
+    // Give the module cards room to breathe.
+    self.moduleManager.moduleSeparatorWidth = 6;
+    [self setMinSize:[self.moduleManager getMinSize]];
+    [self.moduleManager windowChangedToSize:self.frame.size];
+}
+
+// The content view comes from the nib after init, so the glass layer is installed here.
+- (void)awakeFromNib {
+    [super awakeFromNib];
+    [self installGlassBackground];
+}
 
 - (void)setWindowLevelHelper:(NSInteger)index
 {

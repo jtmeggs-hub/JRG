@@ -132,9 +132,8 @@
 
     NSGraphicsContext *gc = [NSGraphicsContext currentContext];
     
-    [[appSettings graphBGColor] set];
     NSRect bounds = [self bounds];
-    CGContextFillRect(gc.CGContext, bounds);
+    [self fillGraphBackground];
 
 	if ([self shouldDrawMiniGraph]) {
 		[self drawMiniGraph:inRect];
@@ -189,9 +188,9 @@
     NSRect graphRect = NSMakeRect(0.0f, 0.0f, inRect.size.width, inRect.size.height);
 	
     NSColor *colors[3];
-    colors[0] = [appSettings graphFG1Color];
-    colors[1] = [appSettings graphFG2Color];
-    colors[2] = [appSettings graphFG3Color];
+    colors[0] = [self graphFG1Color];
+    colors[1] = [self graphFG2Color];
+    colors[2] = [self graphFG3Color];
 
 #ifdef XRG_DEBUG
     NSLog(@"In CPU DrawRect.");
@@ -211,7 +210,7 @@
         NSRect cpuRect = graphRect;
         cpuRect.size.width /= numCPUs;
 
-        [[appSettings graphFG1Color] set];
+        [[self graphFG1Color] set];
         for (NSInteger i = 0; i < numCPUs; i++) {
             NSRectFill(NSMakeRect(cpuRect.origin.x, cpuRect.origin.y, (int)(cpuRect.size.width - 1), [sortedValues[i] floatValue] / 100. * cpuRect.size.height));
             cpuRect.origin.x += cpuRect.size.width;

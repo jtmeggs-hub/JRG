@@ -92,6 +92,7 @@ typedef NS_ENUM(NSInteger, XRGTemperatureUnits) {
 @property NSInteger		netGraphMode;
 @property NSInteger		diskGraphMode;
 @property BOOL			dropShadow;
+@property BOOL			glassAppearance;
 @property BOOL			showTotalBandwidthSinceBoot;
 @property BOOL			showTotalBandwidthSinceLoad;
 @property NSString		*networkInterface;

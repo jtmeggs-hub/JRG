@@ -194,9 +194,8 @@
     NSGraphicsContext *gc = [NSGraphicsContext currentContext];
     
     // first draw the background
-    [[appSettings graphBGColor] set];
     NSRect bounds = [self bounds];
-    CGContextFillRect(gc.CGContext, bounds);
+    [self fillGraphBackground];
 
     if ([self shouldDrawMiniGraph]) {
         [self drawMiniGraph];
@@ -211,9 +210,8 @@
     [gc setShouldAntialias:[appSettings antiAliasing]];
     
     // first draw the background
-    [[appSettings graphBGColor] set];
     NSRect bounds = [self bounds];
-    CGContextFillRect(gc.CGContext, bounds);
+    [self fillGraphBackground];
 
     if ([stockObjects count]) {
         XRGStock *showStock = stockObjects[stockToShow];
@@ -279,7 +277,7 @@
             return;
         }
     
-        [[appSettings graphFG1Color] set];
+        [[self graphFG1Color] set];
         if ([stockObjects[stockToShow] haveGoodDisplayData]) {
             // draw the graph
             NSArray *a = nil;
@@ -313,7 +311,7 @@
                 
                 for (i = 0; i < count; i++) data[i] = [a[i] floatValue];
                 
-                [self drawRangedGraphWithData:data size:[a count] currentIndex:(count - 1) upperBound:high lowerBound:low inRect:[self bounds] flipped:NO filled:YES color:[appSettings graphFG1Color]];
+                [self drawRangedGraphWithData:data size:[a count] currentIndex:(count - 1) upperBound:high lowerBound:low inRect:[self bounds] flipped:NO filled:YES color:[self graphFG1Color]];
             }
         }
         
@@ -347,7 +345,7 @@
                     
                     for (i = 0; i < count; i++) data[i] = [a[i] floatValue];
                     
-                    [self drawRangedGraphWithData:data size:[a count] currentIndex:(count - 1) upperBound:high lowerBound:low inRect:[self bounds] flipped:NO filled:NO color:[appSettings graphFG2Color]];
+                    [self drawRangedGraphWithData:data size:[a count] currentIndex:(count - 1) upperBound:high lowerBound:low inRect:[self bounds] flipped:NO filled:NO color:[self graphFG2Color]];
                 }
             }
         }
@@ -370,8 +368,8 @@
         NSInteger currentIndex = stockToShow;
         for (i = 0; i < maxToShow; i++) {
             if (currentIndex == stockToShow && [stockObjects count] != 1) {
-                [appSettings alignRightAttributes][NSForegroundColorAttributeName] = [appSettings graphFG3Color];
-                [appSettings alignLeftAttributes][NSForegroundColorAttributeName] = [appSettings graphFG3Color];
+                [appSettings alignRightAttributes][NSForegroundColorAttributeName] = [self graphFG3Color];
+                [appSettings alignLeftAttributes][NSForegroundColorAttributeName] = [self graphFG3Color];
             }
 
             [s setString:[stockObjects[currentIndex] label]];

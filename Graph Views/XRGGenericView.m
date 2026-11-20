@@ -202,10 +202,10 @@
 
     [gc setShouldAntialias:[appSettings antiAliasing]];
 
-    [[appSettings graphFG1Color] set];
+    [[self graphFG1Color] set];
     for (NSInteger i = 0; i < values.count; i++) {
         if ((i == 1) && (values.count == 2)) {
-            [[appSettings graphFG2Color] set];
+            [[self graphFG2Color] set];
         }
         
         double value = [values[i] doubleValue];
@@ -215,6 +215,70 @@
 
     // draw the text
     [self drawLeftText:leftLabel centerText:nil rightText:rightLabel inRect:[self paddedTextRect]];
+}
+
+- (void)fillGraphBackground {
+    NSRect bounds = [self bounds];
+
+    if (!appSettings.glassAppearance) {
+        [[appSettings graphBGColor] set];
+        NSRectFill(bounds);
+        return;
+    }
+
+    CGFloat radius = MIN(13.0, MIN(bounds.size.width, bounds.size.height) / 2.0);
+    NSBezierPath *card = [NSBezierPath bezierPathWithRoundedRect:NSInsetRect(bounds, 0.5, 0.5) xRadius:radius yRadius:radius];
+
+    [[NSColor colorWithWhite:1.0 alpha:0.07] setFill];
+    [card fill];
+    [[NSColor colorWithWhite:1.0 alpha:0.18] setStroke];
+    [card setLineWidth:0.5];
+    [card stroke];
+
+    // Keep graphs and text inside the rounded card.
+    [card addClip];
+}
+
+static NSColor *XRGHexColor(UInt32 hex, CGFloat alpha) {
+    return [NSColor colorWithSRGBRed:((hex >> 16) & 0xFF) / 255.0
+                               green:((hex >> 8) & 0xFF) / 255.0
+                                blue:(hex & 0xFF) / 255.0
+                               alpha:alpha];
+}
+
+// Glass-mode palette ("Midnight neon"): [FG1, FG2, FG3] per module.
+- (NSColor *)glassPaletteColorAtIndex:(NSInteger)index {
+    static NSDictionary<NSString *, NSArray<NSColor *> *> *palettes;
+    static NSArray<NSColor *> *fallback;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        CGFloat a = 0.85;
+        fallback = @[XRGHexColor(0x00E0FF, a), XRGHexColor(0x2F7BFF, a), XRGHexColor(0x7FA6D9, a)];
+        palettes = @{
+            // "Midnight neon": saturated, glowy colors that pop on dark glass.
+            @"XRGCPUView":         @[XRGHexColor(0x00E0FF, a), XRGHexColor(0x0094B8, a), XRGHexColor(0x7FA6D9, a)], // electric cyan, deep cyan, steel
+            @"XRGGPUView":         @[XRGHexColor(0x6C4BFF, a), XRGHexColor(0xB18CFF, a), XRGHexColor(0x7FA6D9, a)], // ultraviolet, lilac, steel
+            @"XRGMemoryView":      @[XRGHexColor(0x2F7BFF, a), XRGHexColor(0x7FC8FF, a), XRGHexColor(0x2A3FA8, a)], // neon blue, sky, deep indigo
+            @"XRGNetView":         @[XRGHexColor(0xA66BFF, a), XRGHexColor(0x00F0C8, a), XRGHexColor(0x7FA6D9, a)], // tx violet, rx neon mint
+            @"XRGDiskView":        @[XRGHexColor(0x3D8BFF, a), XRGHexColor(0x2DE3A0, a), XRGHexColor(0x7FA6D9, a)], // write blue, read neon green
+            @"XRGTemperatureView": @[XRGHexColor(0x5CD6FF, a), XRGHexColor(0xE07BFF, a), XRGHexColor(0x00F0C8, a)], // ice cyan, neon orchid, mint
+            @"XRGBatteryView":     @[XRGHexColor(0x2DE3A0, a), XRGHexColor(0x5CD6FF, a), XRGHexColor(0x7FA6D9, a)],
+        };
+    });
+    NSArray<NSColor *> *palette = palettes[NSStringFromClass([self class])] ?: fallback;
+    return palette[index];
+}
+
+- (NSColor *)graphFG1Color {
+    return appSettings.glassAppearance ? [self glassPaletteColorAtIndex:0] : [appSettings graphFG1Color];
+}
+
+- (NSColor *)graphFG2Color {
+    return appSettings.glassAppearance ? [self glassPaletteColorAtIndex:1] : [appSettings graphFG2Color];
+}
+
+- (NSColor *)graphFG3Color {
+    return appSettings.glassAppearance ? [self glassPaletteColorAtIndex:2] : [appSettings graphFG3Color];
 }
 
 - (void)fillRect:(NSRect)rect withColor:(NSColor *)color {
