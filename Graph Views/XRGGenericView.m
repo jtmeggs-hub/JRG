@@ -154,6 +154,11 @@
     
     if (filled) points[currentPointIndex] = NSMakePoint(origin.x + rect.size.width, origin.y);
 
+    if (appSettings.glassAppearance) {
+        [self drawGlassGraphWithPoints:points count:(currentPointIndex + (1 - filledOffset)) filled:filled flipped:flipped inRect:rect color:color];
+        return;
+    }
+
     [color set];
     NSBezierPath *bp = [NSBezierPath bezierPath];
     [bp appendBezierPathWithPoints:points count:(currentPointIndex + (1 - filledOffset))];
@@ -172,6 +177,48 @@
 	}
         
     [bp removeAllPoints];
+}
+
+// Glass-mode graph: a soft gradient fill that fades toward the baseline, with a crisp
+// anti-aliased line along the data. For filled graphs, points[0] and points[count-1]
+// are the baseline corners; the data runs between them.
+- (void)drawGlassGraphWithPoints:(NSPoint *)points count:(NSInteger)count filled:(BOOL)filled flipped:(BOOL)flipped inRect:(NSRect)rect color:(NSColor *)color {
+    if (count < 2) return;
+    NSGraphicsContext *gc = [NSGraphicsContext currentContext];
+    [gc saveGraphicsState];
+    [gc setShouldAntialias:YES];
+
+    NSColor *solid = [color colorWithAlphaComponent:1.0];
+
+    if (filled) {
+        NSBezierPath *area = [NSBezierPath bezierPath];
+        [area appendBezierPathWithPoints:points count:count];
+        [area closePath];
+
+        NSGradient *gradient = [[NSGradient alloc] initWithStartingColor:[solid colorWithAlphaComponent:0.60]
+                                                             endingColor:[solid colorWithAlphaComponent:0.12]];
+        // Clip to the area, then fill: strongest at the data edge, fading toward the baseline.
+        // Span the gradient over the data's own height so quiet graphs still get color.
+        [area addClip];
+        [gradient drawInRect:NSIntersectionRect(NSInsetRect(area.bounds, 0, -1), rect) angle:(flipped ? 90 : -90)];
+        [gc restoreGraphicsState];
+        [gc saveGraphicsState];
+        [gc setShouldAntialias:YES];
+
+        points += 1;   // skip the leading baseline corner
+        count  -= 2;   // and the trailing one
+        if (count < 2) { [gc restoreGraphicsState]; return; }
+    }
+
+    NSBezierPath *line = [NSBezierPath bezierPath];
+    [line appendBezierPathWithPoints:points count:count];
+    [line setLineWidth:1.5];
+    [line setLineCapStyle:NSLineCapStyleRound];
+    [line setLineJoinStyle:NSLineJoinStyleRound];
+    [solid setStroke];
+    [line stroke];
+
+    [gc restoreGraphicsState];
 }
 
 - (void)drawRangedGraphWithDataFromDataSet:(XRGDataSet *)dataSet upperBound:(CGFloat)max lowerBound:(CGFloat)min inRect:(NSRect)rect flipped:(BOOL)flipped filled:(BOOL)filled color:(NSColor *)color {
@@ -303,6 +350,29 @@ static NSColor *XRGHexColor(UInt32 hex, CGFloat alpha) {
     [bp fill];
 }
 
+// Glass-mode text: the first line (module name or headline number) is medium weight
+// and full white; label lines are a softer white; values use fixed-width digits so
+// they don't jitter as they change.
+- (NSAttributedString *)glassStringForLines:(NSArray<NSString *> *)lines baseAttributes:(NSDictionary *)base isValueColumn:(BOOL)isValue {
+    NSFont *baseFont = base[NSFontAttributeName] ?: [NSFont systemFontOfSize:10];
+    CGFloat size = baseFont.pointSize;
+    NSFont *headFont  = [NSFont monospacedDigitSystemFontOfSize:size weight:NSFontWeightSemibold];
+    NSFont *bodyFont  = isValue ? [NSFont monospacedDigitSystemFontOfSize:size weight:NSFontWeightMedium]
+                                : [NSFont systemFontOfSize:size weight:NSFontWeightRegular];
+    NSColor *headColor = [NSColor colorWithWhite:1.0 alpha:1.0];
+    NSColor *bodyColor = isValue ? [NSColor colorWithWhite:1.0 alpha:0.92] : [NSColor colorWithWhite:1.0 alpha:0.62];
+
+    NSMutableAttributedString *result = [[NSMutableAttributedString alloc] init];
+    for (NSUInteger i = 0; i < lines.count; i++) {
+        NSMutableDictionary *attrs = [base mutableCopy];
+        attrs[NSFontAttributeName] = (i == 0) ? headFont : bodyFont;
+        attrs[NSForegroundColorAttributeName] = (i == 0) ? headColor : bodyColor;
+        NSString *text = (i + 1 < lines.count) ? [lines[i] stringByAppendingString:@"\n"] : lines[i];
+        [result appendAttributedString:[[NSAttributedString alloc] initWithString:text attributes:attrs]];
+    }
+    return result;
+}
+
 - (void)drawLeftText:(NSString *)leftText centerText:(NSString *)centerText rightText:(NSString *)rightText inRect:(NSRect)rect {
     NSGraphicsContext *gc = [NSGraphicsContext currentContext];
     CGFloat textRectHeight = [appSettings textRectHeight];
@@ -335,8 +405,13 @@ static NSColor *XRGHexColor(UInt32 hex, CGFloat alpha) {
 
         if (leftLines.count > 0) {
             NSArray<NSString *> *showLines = [leftLines subarrayWithRange:NSMakeRange(0, MIN(leftLines.count, maxDisplayLines))];
-            NSString *joined = [showLines componentsJoinedByString:@"\n"];
-            self.leftLabel.attributedStringValue = [[NSAttributedString alloc] initWithString:joined attributes:[appSettings alignLeftAttributes]];
+            if (appSettings.glassAppearance) {
+                self.leftLabel.attributedStringValue = [self glassStringForLines:showLines baseAttributes:[appSettings alignLeftAttributes] isValueColumn:NO];
+            }
+            else {
+                NSString *joined = [showLines componentsJoinedByString:@"\n"];
+                self.leftLabel.attributedStringValue = [[NSAttributedString alloc] initWithString:joined attributes:[appSettings alignLeftAttributes]];
+            }
         }
         else {
             self.leftLabel.stringValue = @"";
@@ -344,8 +419,13 @@ static NSColor *XRGHexColor(UInt32 hex, CGFloat alpha) {
         
         if (centerLines.count > 0) {
             NSArray<NSString *> *showLines = [centerLines subarrayWithRange:NSMakeRange(0, MIN(centerLines.count, maxDisplayLines))];
-            NSString *joined = [showLines componentsJoinedByString:@"\n"];
-            self.centerLabel.attributedStringValue = [[NSAttributedString alloc] initWithString:joined attributes:[appSettings alignCenterAttributes]];
+            if (appSettings.glassAppearance) {
+                self.centerLabel.attributedStringValue = [self glassStringForLines:showLines baseAttributes:[appSettings alignCenterAttributes] isValueColumn:YES];
+            }
+            else {
+                NSString *joined = [showLines componentsJoinedByString:@"\n"];
+                self.centerLabel.attributedStringValue = [[NSAttributedString alloc] initWithString:joined attributes:[appSettings alignCenterAttributes]];
+            }
         }
         else {
             self.centerLabel.stringValue = @"";
@@ -353,8 +433,13 @@ static NSColor *XRGHexColor(UInt32 hex, CGFloat alpha) {
 
         if (rightLines.count > 0) {
             NSArray<NSString *> *showLines = [rightLines subarrayWithRange:NSMakeRange(0, MIN(rightLines.count, maxDisplayLines))];
-            NSString *joined = [showLines componentsJoinedByString:@"\n"];
-            self.rightLabel.attributedStringValue = [[NSAttributedString alloc] initWithString:joined attributes:[appSettings alignRightAttributes]];
+            if (appSettings.glassAppearance) {
+                self.rightLabel.attributedStringValue = [self glassStringForLines:showLines baseAttributes:[appSettings alignRightAttributes] isValueColumn:YES];
+            }
+            else {
+                NSString *joined = [showLines componentsJoinedByString:@"\n"];
+                self.rightLabel.attributedStringValue = [[NSAttributedString alloc] initWithString:joined attributes:[appSettings alignRightAttributes]];
+            }
         } else {
             self.rightLabel.stringValue = @"";
         }
