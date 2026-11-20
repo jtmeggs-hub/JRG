@@ -317,6 +317,9 @@ void sleepNotification(void *refcon, io_service_t service, natural_t messageType
 }
 
 - (void)checkServerForUpdates {
+    // JRG is a fork: XRG's update server would offer XRG releases, so skip the check.
+    return;
+
     self.xrgCheckURL = [[XRGURL alloc] init];
     [self.xrgCheckURL setURLString:@"https://download.gauchosoft.com/xrg/latest_version.txt"];
     [self.xrgCheckURL loadURLInBackground];

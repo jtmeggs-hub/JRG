@@ -88,7 +88,25 @@
     [self.xrgGraphWindow cleanupBeforeExiting];
 }
 
+// Menu titles in MainMenu.nib still say "XRG"; swap in the app's own name.
+- (void)renameMenu:(NSMenu *)menu toAppName:(NSString *)appName {
+    for (NSMenuItem *item in menu.itemArray) {
+        if ([item.title containsString:@"XRG"]) {
+            item.title = [item.title stringByReplacingOccurrencesOfString:@"XRG" withString:appName];
+        }
+        if (item.submenu) {
+            if ([item.submenu.title containsString:@"XRG"]) {
+                item.submenu.title = [item.submenu.title stringByReplacingOccurrencesOfString:@"XRG" withString:appName];
+            }
+            [self renameMenu:item.submenu toAppName:appName];
+        }
+    }
+}
+
 - (void)applicationDidFinishLaunching:(NSNotification *)aNotification {
+    NSString *appName = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleName"] ?: @"JRG";
+    [self renameMenu:[NSApp mainMenu] toAppName:appName];
+
 	[self.xrgGraphWindow.moduleManager windowChangedToSize:self.xrgGraphWindow.frame.size];
 	
 	if ([[NSUserDefaults standardUserDefaults] boolForKey:XRG_windowIsMinimized]) {

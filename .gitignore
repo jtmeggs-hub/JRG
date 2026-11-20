@@ -17,3 +17,4 @@ profile
 build/
 build.log
 docs/prefs-backup-*.plist
+build-release.log

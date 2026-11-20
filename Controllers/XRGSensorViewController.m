@@ -129,7 +129,7 @@
     NSString *appVersion = [NSBundle mainBundle].infoDictionary[@"CFBundleShortVersionString"];
     if (!appVersion) appVersion = @"";
 
-    [copyText appendFormat:@"XRG %@\n", appVersion];
+    [copyText appendFormat:@"JRG %@\n", appVersion];
     [copyText appendFormat:@"Mac model: %@\n", [XRGCPUMiner systemModelIdentifier]];
     [copyText appendFormat:@"Running macOS %@\n\n", [[NSProcessInfo processInfo] operatingSystemVersionString]];
     [copyText appendString:@"Discovered Sensors:\n"];

@@ -118,7 +118,7 @@
     appSettings = [parentWindow appSettings];
     moduleManager = [parentWindow moduleManager];
     
-	self.hostname = @"XRG";
+	self.hostname = @"JRG";
 	[self getHostname];
 	
     // Find out whether or not the App's UI is being displayed.
@@ -250,7 +250,7 @@
 		NSString *s = [proc hostName];
 		NSRange r = [s rangeOfString:@"."];
 		
-		NSString *newHostname = @"XRG";
+		NSString *newHostname = @"JRG";
 		if (r.location == NSNotFound) {
 			if ([s length] > 0)	newHostname = s;
 		}
@@ -450,7 +450,7 @@
     tMI = [[NSMenuItem alloc] initWithTitle:@"Preferences..." action:@selector(openPreferences:) keyEquivalent:@""];
     [myMenu addItem:tMI];
 
-    tMI = [[NSMenuItem alloc] initWithTitle:@"XRG Help" action:@selector(openHelp:) keyEquivalent:@""];
+    tMI = [[NSMenuItem alloc] initWithTitle:@"JRG Help" action:@selector(openHelp:) keyEquivalent:@""];
     [myMenu addItem:tMI];
     
     [myMenu addItem:[NSMenuItem separatorItem]];
