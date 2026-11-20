@@ -296,38 +296,34 @@
             valueString = [NSString stringWithFormat:@"%3.1f%@", locationValue, units];
         }
 
-        [[self graphFG1Color] set];
+        float gaugeMin, gaugeMax;
         if ([[XRGTemperatureMiner shared] isFanSensor:sensor]) {
-            float min = 0;
-            float max = [[XRGTemperatureMiner shared] maxSpeedForFan:sensor];
-
-            CGContextFillRect(
-                gc.CGContext,
-                CGRectMake(
-                    barRect.origin.x,
-                    barRect.origin.y,
-                    MIN(MAX(1, ((locationValue - min) / (max - min)) * barRect.size.width), barRect.size.width),
-                    (i == 0) ? barRect.size.height : floor(barRect.size.height - 1)
-                )
-            );
+            gaugeMin = 0;
+            gaugeMax = [[XRGTemperatureMiner shared] maxSpeedForFan:sensor];
         }
         else {
-            float min = temperatureMin;
-            float max = temperatureMax;
-
-            CGContextFillRect(
-                gc.CGContext,
-                CGRectMake(
-                    barRect.origin.x,
-                    barRect.origin.y,
-                    MIN(MAX(1, ((locationValue - min) / (max - min)) * barRect.size.width), barRect.size.width),
-                    (i == 0) ? barRect.size.height : floor(barRect.size.height - 1)
-                )
-            );
+            gaugeMin = temperatureMin;
+            gaugeMax = temperatureMax;
         }
+        CGFloat gaugeWidth = MIN(MAX(1, ((locationValue - gaugeMin) / (gaugeMax - gaugeMin)) * barRect.size.width), barRect.size.width);
 
-        [[appSettings borderColor] set];
-        NSRectFill(NSMakeRect(self.bounds.origin.x, barRect.origin.y - 1, self.bounds.size.width, 2));
+        if (appSettings.glassAppearance) {
+            // Thin rounded underline gauge, colored to match the sensor's graph line.
+            NSColor *rowColor = (i == 0) ? [self graphFG1Color] : (i == 1) ? [self graphFG2Color] : (i == 2) ? [self graphFG3Color] : [NSColor colorWithWhite:1.0 alpha:0.45];
+            NSRect track = NSMakeRect(barRect.origin.x + 1, barRect.origin.y + 1, barRect.size.width - 2, 2);
+            [[NSColor colorWithWhite:1.0 alpha:0.10] setFill];
+            [[NSBezierPath bezierPathWithRoundedRect:track xRadius:1 yRadius:1] fill];
+            track.size.width = MAX(2, MIN(gaugeWidth, barRect.size.width) - 2);
+            [rowColor setFill];
+            [[NSBezierPath bezierPathWithRoundedRect:track xRadius:1 yRadius:1] fill];
+        }
+        else {
+            [[self graphFG1Color] set];
+            CGContextFillRect(gc.CGContext, CGRectMake(barRect.origin.x, barRect.origin.y, gaugeWidth, (i == 0) ? barRect.size.height : floor(barRect.size.height - 1)));
+
+            [[appSettings borderColor] set];
+            NSRectFill(NSMakeRect(self.bounds.origin.x, barRect.origin.y - 1, self.bounds.size.width, 2));
+        }
 
         [leftText appendFormat:@"%@\n", sensor.label];
         [rightText appendFormat:@"%@\n", valueString];

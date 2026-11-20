@@ -172,43 +172,56 @@
     tmpRect.origin.x    = 3;
     tmpRect.size.height = textRectHeight;
     tmpRect.size.width  = graphSize.width - 19 - 6;
-    NSMutableString *s  = [[NSMutableString alloc] init]; 
-    [s setString: @"Memory"];
-       
-    if ([appSettings memoryShowFree]) {
-        [s appendFormat:@"\nF: %@", [XRGCommon formattedStringForBytes:[memoryMiner freeBytes]]];
-    }
-    
-    if ([appSettings memoryShowInactive]) {
-        [s appendFormat:@"\nI: %@", [XRGCommon formattedStringForBytes:[memoryMiner inactiveBytes]]];
-    }
-    
-    if ([appSettings memoryShowActive]) {
-        [s appendFormat:@"\nA: %@", [XRGCommon formattedStringForBytes:[memoryMiner activeBytes]]];
-    }
-    
-    if ([appSettings memoryShowWired]) {
-        [s appendFormat:@"\nW: %@", [XRGCommon formattedStringForBytes:[memoryMiner wiredBytes]]];
-    }
-    
-    if ([appSettings memoryShowCache]) {
-        [s appendFormat:@"\nCa: %d%%", ([memoryMiner totalCacheLookups] == 0) ? 0 : (int)((float)[memoryMiner totalCacheHits] / (float)[memoryMiner totalCacheLookups] * 100.)];
-    }
-    
-    if ([appSettings memoryShowPage]) {
-        if ([appSettings graphRefresh] != 0) {
-            if ([memoryMiner recentFaults] * 4 > 1024)
-                [s appendFormat:@"\nPF: %4.2fM/s", (float)[memoryMiner recentFaults] / [appSettings graphRefresh] * 4. / 1024.];
-            else
-                [s appendFormat: @"\nPF: %dK/s", (int)((float)[memoryMiner recentFaults] / [appSettings graphRefresh]) * 4];
-        }
-    }
-	
-	// Draw the VM text.
-    [s appendFormat:@"\nVu: %@", [XRGCommon formattedStringForBytes:[memoryMiner usedSwap]]];
-    [s appendFormat:@"\nVt: %@", [XRGCommon formattedStringForBytes:[memoryMiner totalSwap]]];
+    // Build each stat as a (short label, full label, value) row. Glass mode shows full
+    // words with right-aligned values; classic mode keeps the compact "F: 1.2G" style.
+    NSMutableArray<NSArray<NSString *> *> *rows = [NSMutableArray array];
 
-    [self drawLeftText:s centerText:nil rightText:nil inRect:[self paddedTextRect]];
+    if ([appSettings memoryShowFree]) {
+        [rows addObject:@[@"F", @"Free", [XRGCommon formattedStringForBytes:[memoryMiner freeBytes]]]];
+    }
+    if ([appSettings memoryShowInactive]) {
+        [rows addObject:@[@"I", @"Inactive", [XRGCommon formattedStringForBytes:[memoryMiner inactiveBytes]]]];
+    }
+    if ([appSettings memoryShowActive]) {
+        [rows addObject:@[@"A", @"Active", [XRGCommon formattedStringForBytes:[memoryMiner activeBytes]]]];
+    }
+    if ([appSettings memoryShowWired]) {
+        [rows addObject:@[@"W", @"Wired", [XRGCommon formattedStringForBytes:[memoryMiner wiredBytes]]]];
+    }
+    if ([appSettings memoryShowCache]) {
+        int cachePercent = ([memoryMiner totalCacheLookups] == 0) ? 0 : (int)((float)[memoryMiner totalCacheHits] / (float)[memoryMiner totalCacheLookups] * 100.);
+        [rows addObject:@[@"Ca", @"Cache", [NSString stringWithFormat:@"%d%%", cachePercent]]];
+    }
+    if ([appSettings memoryShowPage] && [appSettings graphRefresh] != 0) {
+        NSString *faults;
+        if ([memoryMiner recentFaults] * 4 > 1024)
+            faults = [NSString stringWithFormat:@"%4.2fM/s", (float)[memoryMiner recentFaults] / [appSettings graphRefresh] * 4. / 1024.];
+        else
+            faults = [NSString stringWithFormat:@"%dK/s", (int)((float)[memoryMiner recentFaults] / [appSettings graphRefresh]) * 4];
+        [rows addObject:@[@"PF", @"Faults", faults]];
+    }
+    [rows addObject:@[@"Vu", @"Swap", [XRGCommon formattedStringForBytes:[memoryMiner usedSwap]]]];
+    [rows addObject:@[@"Vt", @"Swap max", [XRGCommon formattedStringForBytes:[memoryMiner totalSwap]]]];
+
+    if (appSettings.glassAppearance) {
+        NSMutableString *left = [NSMutableString stringWithString:@"Memory"];
+        NSMutableString *right = [NSMutableString string];
+        for (NSArray<NSString *> *row in rows) {
+            [left appendFormat:@"\n%@", row[1]];
+            [right appendFormat:@"\n%@", row[2]];
+        }
+        // Keep the values clear of the usage bar on the right edge.
+        NSRect textRect = [self paddedTextRect];
+        textRect.size.width -= 19 + 4;
+        [self drawLeftText:left centerText:nil rightText:right inRect:textRect];
+    }
+    else {
+        NSMutableString *s = [NSMutableString stringWithString:@"Memory"];
+        for (NSArray<NSString *> *row in rows) {
+            [s appendFormat:@"\n%@: %@", row[0], row[2]];
+        }
+        [self drawLeftText:s centerText:nil rightText:nil inRect:[self paddedTextRect]];
+    }
     [gc setShouldAntialias:YES];
 }
 

@@ -210,6 +210,22 @@ typedef NS_ENUM(int, DescriptionMatch_t) {
                 }
             }
         }
+        if( smcKeyDescription == nil ) {
+            // Still nothing: fall back to a loose match where "?" stands for any single
+            // character (e.g. "Tg0X" -> "Tg0?" -> "GPU Cluster" on Apple Silicon).
+            for (NSString *pattern in keyDescriptionsWithWildcard) {
+                if (pattern.length != currentKey.length) continue;
+                BOOL matches = YES;
+                for (NSUInteger c = 0; c < pattern.length; c++) {
+                    unichar pc = [pattern characterAtIndex:c];
+                    if (pc != '?' && pc != [currentKey characterAtIndex:c]) { matches = NO; break; }
+                }
+                if (matches) {
+                    smcKeyDescription = self.descriptionsForSMCKeys[pattern];
+                    break;
+                }
+            }
+        }
 
         // Older Intel CPUs have a degrees from prochot instead of core temperatures.  Check for that here.
         if ([smcKeyDescription isEqualToString:@"TCAC"] && ![smcKeys containsObject:@"TC9C"]) {

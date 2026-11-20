@@ -78,10 +78,14 @@
     m.doesMin30Update = NO;
     m.displayOrder = 3;
     [self updateMinSize];
-    [m setIsDisplayed: (bool)[defs boolForKey:XRG_showBatteryGraph]];
 
     self.batteryMiner = [[XRGBatteryMiner alloc] init];
     [self.batteryMiner graphUpdate:nil];
+
+    // Hide the module on Macs with no battery (desktops) instead of showing empty 0% / 0mAh values.
+    // Desktops can report a battery entry with zero capacity, so check capacity rather than count.
+    BOOL hasBattery = self.batteryMiner.batteries.count > 0 && [self.batteryMiner totalCapacity] > 0;
+    [m setIsDisplayed: (bool)([defs boolForKey:XRG_showBatteryGraph] && hasBattery)];
     
     [[parentWindow moduleManager] addModule:m];
 }
