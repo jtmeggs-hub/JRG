@@ -30,6 +30,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/sysctl.h>
+#include <net/if_mib.h>
 #include <sys/un.h>
 #include <unistd.h>
 //#include <kvm.h>
@@ -183,52 +184,33 @@ int read_ApplePPP_data(io_stats *i_net, io_stats *o_net);
     }
 }
 
-// The code in this method is based on code from gkrellm.
+// Reads per-interface byte counters from the interface MIB (net.link.generic.ifdata).
+// These are true 64-bit counters. The routing-socket API used previously
+// (NET_RT_IFLIST / NET_RT_IFLIST2) reports counters truncated to 32 bits on
+// current macOS, so totals wrapped every 4 GB.
 - (void)getInterfacesBandwidth {
-    struct if_msghdr	*ifm, *nextifm;
-    struct sockaddr_dl	*sdl;
-    char		*lim, *next;
-    size_t		needed;
-    char		s[32];
-    
-    if (sysctl(mib, 6, NULL, &needed, NULL, 0) < 0)
+    int ifCount = 0;
+    size_t len = sizeof(ifCount);
+    int countMib[5] = { CTL_NET, PF_LINK, NETLINK_GENERIC, IFMIB_SYSTEM, IFMIB_IFCOUNT };
+    if (sysctl(countMib, 5, &ifCount, &len, NULL, 0) < 0)
         return;
-    if (alloc < needed) {
-        if (buf != NULL)
-            free(buf);
-        buf = malloc(needed);
-        if (buf == NULL)
-            return;
-        alloc = needed;
-    }
-    
-    if (sysctl(mib, 6, buf, &needed, NULL, 0) < 0)
-        return;
-    lim = buf + needed;
-    
-    next = buf;
-    while (next < lim) {
-        ifm = (struct if_msghdr *)next;
-        if (ifm->ifm_type != RTM_IFINFO)
-            return;
-        next += ifm->ifm_msglen;
-        
-        while (next < lim) {
-            nextifm = (struct if_msghdr *)next;
-            if (nextifm->ifm_type != RTM_NEWADDR)
-                break;
-            next += nextifm->ifm_msglen;
-        }
-        
-        if (ifm->ifm_flags & IFF_UP) {
-            sdl = (struct sockaddr_dl *)(ifm + 1);
-            if (sdl->sdl_family != AF_LINK)
-                continue;
-            strncpy(s, sdl->sdl_data, sdl->sdl_nlen);
-            s[sdl->sdl_nlen] = '\0';
 
-            [self setInterfaceBandwidth:s inBytes:(UInt64)ifm->ifm_data.ifi_ibytes outBytes:(UInt64)ifm->ifm_data.ifi_obytes];
-        }
+    // Interface indexes can have gaps, so scan a little past the count.
+    int found = 0;
+    for (int index = 1; found < ifCount && index <= ifCount + 64; index++) {
+        struct ifmibdata data;
+        len = sizeof(data);
+        int dataMib[6] = { CTL_NET, PF_LINK, NETLINK_GENERIC, IFMIB_IFDATA, index, IFDATA_GENERAL };
+        if (sysctl(dataMib, 6, &data, &len, NULL, 0) < 0)
+            continue;
+        found++;
+
+        if (!(data.ifmd_flags & IFF_UP))
+            continue;
+
+        [self setInterfaceBandwidth:data.ifmd_name
+                            inBytes:(UInt64)data.ifmd_data.ifi_ibytes
+                           outBytes:(UInt64)data.ifmd_data.ifi_obytes];
     }
 }
 
@@ -287,8 +269,8 @@ int read_ApplePPP_data(io_stats *i_net, io_stats *o_net);
                 _interfaceStats[i].if_in.bytes_delta = 0;
             }
             else if (_interfaceStats[i].if_in.bsd_bytes < _interfaceStats[i].if_in.bsd_bytes_prev) {
-                _interfaceStats[i].if_in.bytes_delta = _interfaceStats[i].if_in.bsd_bytes +
-                (((unsigned int)-1) - _interfaceStats[i].if_in.bsd_bytes_prev);
+                // 64-bit counters don't wrap in practice; a drop means the interface counter was reset.
+                _interfaceStats[i].if_in.bytes_delta = _interfaceStats[i].if_in.bsd_bytes;
             }
             else {
                 _interfaceStats[i].if_in.bytes_delta = _interfaceStats[i].if_in.bsd_bytes -
@@ -306,8 +288,8 @@ int read_ApplePPP_data(io_stats *i_net, io_stats *o_net);
                 _interfaceStats[i].if_out.bytes_delta = 0;
             }
             else if (_interfaceStats[i].if_out.bsd_bytes < _interfaceStats[i].if_out.bsd_bytes_prev) {
-                _interfaceStats[i].if_out.bytes_delta = _interfaceStats[i].if_out.bsd_bytes +
-                (((unsigned int)-1) - _interfaceStats[i].if_out.bsd_bytes_prev);
+                // 64-bit counters don't wrap in practice; a drop means the interface counter was reset.
+                _interfaceStats[i].if_out.bytes_delta = _interfaceStats[i].if_out.bsd_bytes;
             }
             else {
                 _interfaceStats[i].if_out.bytes_delta = _interfaceStats[i].if_out.bsd_bytes -
