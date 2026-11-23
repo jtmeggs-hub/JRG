@@ -12,7 +12,6 @@
 
 #import <Cocoa/Cocoa.h>
 
-extern NSString * const JRGLayoutKey;          // @"classic" or @"dock"
 extern NSString * const JRGDockStyleKey;       // @"glass" or @"bare"
 extern NSString * const JRGDockKeepOnTopKey;   // BOOL
 extern NSString * const JRGDockOffsetXKey;     // CGFloat, strip's x offset from the screen's left edge
@@ -21,15 +20,10 @@ extern NSString * const JRGDockOffsetXKey;     // CGFloat, strip's x offset from
 
 + (instancetype)shared;
 
-/// YES when the Dock strip layout is selected (the default).
-+ (BOOL)dockLayoutSelected;
-
-/// Shows the strip and hides the classic window, or the reverse.
+/// Builds (if needed) and shows the strip next to the Dock.
 - (void)showDockStrip;
-- (void)showClassicLayout;
 
-/// Menu actions (also used from the classic window's right-click menu).
-- (IBAction)switchToDockStrip:(id)sender;
-- (IBAction)switchToClassic:(id)sender;
+/// Opens the Settings window.
+- (IBAction)showSettings:(id)sender;
 
 @end

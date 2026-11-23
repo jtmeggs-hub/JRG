@@ -1,49 +1,14 @@
-/* 
- * XRG (X Resource Graph):  A system resource grapher for Mac OS X.
- * Copyright (C) 2002-2022 Gaucho Software, LLC.
- * You can view the complete license in the LICENSE file in the root
- * of the source tree.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
- *
+/*
+ * JRG, based on XRG (X Resource Graph) by Gaucho Software, LLC.
+ * Copyright (C) 2002-2022 Gaucho Software, LLC. Changes (C) 2026 Jordan Meggs.
+ * Licensed under the GNU General Public License, version 2 or later.
+ * See the LICENSE file in the root of the source tree.
  */
 
-//
-//  XRGAppDelegate.h
-//
-
 #import <Cocoa/Cocoa.h>
-#import "XRGPrefController.h"
-#import "XRGSensorViewController.h"
-#import "XRGSettings.h"
-#import "XRGModuleManager.h"
 
-@class XRGGraphWindow;
+@interface XRGAppDelegate : NSObject <NSApplicationDelegate>
 
-@interface XRGAppDelegate : NSObject<NSApplicationDelegate>
-
-@property (strong) IBOutlet XRGPrefController *prefController;
-@property (strong) IBOutlet XRGGraphWindow *xrgGraphWindow;
-@property (strong) IBOutlet NSWindow *sensorWindow;
-@property (strong) IBOutlet XRGSensorViewController *sensorViewController;
-
-- (IBAction)showPrefs:(id)sender;
-- (void)showPrefsWithPanel:(NSString *)panelName;
-- (IBAction)openSensorWindow:(id)sender;
-
-- (XRGSettings *)appSettings;
-- (XRGModuleManager *)moduleManager;
+- (IBAction)showSettings:(id)sender;
 
 @end

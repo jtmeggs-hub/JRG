@@ -25,6 +25,7 @@
 //
 
 #import <Cocoa/Cocoa.h>
+#import "XRGAppDelegate.h"
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <sys/types.h>
@@ -41,5 +42,9 @@ int main(int argc, const char *argv[]) {
 		}
     }
 
+    // JRG builds its UI in code; there is no main nib. Hand NSApplication its delegate first.
+    static XRGAppDelegate *delegate;
+    delegate = [[XRGAppDelegate alloc] init];
+    [NSApplication sharedApplication].delegate = delegate;
     return NSApplicationMain(argc, argv);
 }

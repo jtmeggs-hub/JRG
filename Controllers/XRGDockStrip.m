@@ -7,7 +7,6 @@
 
 #import "XRGDockStrip.h"
 #import "XRGAppDelegate.h"
-#import "XRGGraphWindow.h"
 #import "XRGCPUMiner.h"
 #import "XRGGPUMiner.h"
 #import "XRGMemoryMiner.h"
@@ -16,7 +15,6 @@
 #import <IOKit/IOKitLib.h>
 #import <IOKit/storage/IOBlockStorageDriver.h>
 
-NSString * const JRGLayoutKey        = @"JRGLayout";
 NSString * const JRGDockStyleKey     = @"JRGDockStyle";
 NSString * const JRGDockKeepOnTopKey = @"JRGDockKeepOnTop";
 NSString * const JRGDockOffsetXKey   = @"JRGDockOffsetX";
@@ -326,16 +324,11 @@ static void JRGDrawChart(NSArray<NSNumber *> *values, CGFloat maxValue, NSRect r
 + (void)initialize {
     if (self == [XRGDockStripController class]) {
         [[NSUserDefaults standardUserDefaults] registerDefaults:@{
-            JRGLayoutKey: @"dock",
             JRGDockStyleKey: @"glass",
             JRGDockKeepOnTopKey: @YES,
             JRGDockOffsetXKey: @12,
         }];
     }
-}
-
-+ (BOOL)dockLayoutSelected {
-    return [[[NSUserDefaults standardUserDefaults] stringForKey:JRGLayoutKey] isEqualToString:@"dock"];
 }
 
 - (instancetype)init {
@@ -358,31 +351,16 @@ static void JRGDrawChart(NSArray<NSNumber *> *values, CGFloat maxValue, NSRect r
 
 #pragma mark Showing and hiding
 
-- (XRGGraphWindow *)classicWindow {
-    return [(XRGAppDelegate *)[NSApp delegate] xrgGraphWindow];
-}
-
 - (void)showDockStrip {
-    [[NSUserDefaults standardUserDefaults] setObject:@"dock" forKey:JRGLayoutKey];
     [self startSampling];
     [self buildWindowIfNeeded];
     [self applyStyle];
     [self positionStrip];
     [self.stripWindow orderFrontRegardless];
-    [[self classicWindow] orderOut:nil];
 }
 
-- (void)showClassicLayout {
-    [[NSUserDefaults standardUserDefaults] setObject:@"classic" forKey:JRGLayoutKey];
-    [self hoverChangedTo:-1];
-    [self.stripWindow orderOut:nil];
-    [self.sampleTimer invalidate];
-    self.sampleTimer = nil;
-    [[self classicWindow] orderFrontRegardless];
+- (IBAction)showSettings:(id)sender {
 }
-
-- (IBAction)switchToDockStrip:(id)sender { [self showDockStrip]; }
-- (IBAction)switchToClassic:(id)sender   { [self showClassicLayout]; }
 
 - (void)buildWindowIfNeeded {
     if (self.stripWindow) return;
@@ -829,9 +807,7 @@ static NSString *JRGPercent(CGFloat v) { return [NSString stringWithFormat:@"%.0
     reset.target = self;
     [menu addItem:[NSMenuItem separatorItem]];
 
-    NSMenuItem *classic = [menu addItemWithTitle:@"Switch to Classic Layout" action:@selector(switchToClassic:) keyEquivalent:@""];
-    classic.target = self;
-    [menu addItemWithTitle:@"Preferences…" action:@selector(showPrefs:) keyEquivalent:@""].target = [NSApp delegate];
+    [menu addItemWithTitle:@"Settings…" action:@selector(showSettings:) keyEquivalent:@""].target = self;
     [menu addItem:[NSMenuItem separatorItem]];
     [menu addItemWithTitle:@"Quit JRG" action:@selector(terminate:) keyEquivalent:@""].target = NSApp;
     return menu;
