@@ -27,6 +27,8 @@
 		937851AA157CA243001D2A15 /* SMCInterface.m in Sources */ = {isa = PBXBuildFile; fileRef = 937851A8157CA243001D2A15 /* SMCInterface.m */; };
 		937851AD157CA5D0001D2A15 /* SMCSensors.m in Sources */ = {isa = PBXBuildFile; fileRef = 937851AC157CA5D0001D2A15 /* SMCSensors.m */; };
 		93C915F32550346600220EC5 /* Accelerate.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 93C915F22550346600220EC5 /* Accelerate.framework */; };
+		A1B2C3D40000000000000011 /* JRGSettings.m in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000000000001 /* JRGSettings.m */; };
+		A1B2C3D40000000000000012 /* JRGSettingsWindow.m in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000000000002 /* JRGSettingsWindow.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -77,6 +79,10 @@
 		937851AB157CA5D0001D2A15 /* SMCSensors.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SMCSensors.h; sourceTree = "<group>"; };
 		937851AC157CA5D0001D2A15 /* SMCSensors.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SMCSensors.m; sourceTree = "<group>"; };
 		93C915F22550346600220EC5 /* Accelerate.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Accelerate.framework; path = System/Library/Frameworks/Accelerate.framework; sourceTree = SDKROOT; };
+		A1B2C3D40000000000000021 /* JRGSettings.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JRGSettings.h; sourceTree = "<group>"; };
+		A1B2C3D40000000000000001 /* JRGSettings.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = JRGSettings.m; sourceTree = "<group>"; };
+		A1B2C3D40000000000000022 /* JRGSettingsWindow.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JRGSettingsWindow.h; sourceTree = "<group>"; };
+		A1B2C3D40000000000000002 /* JRGSettingsWindow.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = JRGSettingsWindow.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -155,6 +161,10 @@
 				273ECE8D15740EAF00E65D82 /* XRGAppDelegate.m */,
 				CAAC8B9BC122AA006D5491A0 /* XRGDockStrip.h */,
 				506D6EF3E432AA591B5CA2C9 /* XRGDockStrip.m */,
+				A1B2C3D40000000000000021 /* JRGSettings.h */,
+				A1B2C3D40000000000000001 /* JRGSettings.m */,
+				A1B2C3D40000000000000022 /* JRGSettingsWindow.h */,
+				A1B2C3D40000000000000002 /* JRGSettingsWindow.m */,
 			);
 			path = Controllers;
 			sourceTree = SOURCE_ROOT;
@@ -306,6 +316,8 @@
 			files = (
 				273ECEFA15740EAF00E65D82 /* XRGAppDelegate.m in Sources */,
 				C27BDAC80842248E4AE4248E /* XRGDockStrip.m in Sources */,
+				A1B2C3D40000000000000011 /* JRGSettings.m in Sources */,
+				A1B2C3D40000000000000012 /* JRGSettingsWindow.m in Sources */,
 				273ECEFF15740EAF00E65D82 /* XRGCPUMiner.m in Sources */,
 				273ECF0015740EAF00E65D82 /* XRGMemoryMiner.m in Sources */,
 				27C3A8A52551B4A40004F2EC /* XRGStatsManager.m in Sources */,
@@ -428,12 +440,13 @@
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = YES;
+				CLANG_ENABLE_MODULES = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "Other Sources/XRG-Prefix.pch";
 				GCC_VERSION = "";
 				INFOPLIST_FILE = "XRG-Info.plist";
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.jordanmeggs.JRG-dev";
 				PRODUCT_NAME = JRG;
 				WRAPPER_EXTENSION = app;
@@ -450,12 +463,13 @@
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = YES;
+				CLANG_ENABLE_MODULES = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "Other Sources/XRG-Prefix.pch";
 				GCC_VERSION = "";
 				INFOPLIST_FILE = "XRG-Info.plist";
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.jordanmeggs.JRG;
 				PRODUCT_NAME = JRG;
 				WRAPPER_EXTENSION = app;

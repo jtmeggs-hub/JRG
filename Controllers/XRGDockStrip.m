@@ -6,76 +6,36 @@
 //
 
 #import "XRGDockStrip.h"
-#import "XRGAppDelegate.h"
+#import "JRGSettings.h"
+#import "JRGSettingsWindow.h"
 #import "XRGCPUMiner.h"
 #import "XRGGPUMiner.h"
 #import "XRGMemoryMiner.h"
 #import "XRGNetMiner.h"
+#import "XRGTemperatureMiner.h"
 #import "XRGDataSet.h"
 #import <IOKit/IOKitLib.h>
 #import <IOKit/storage/IOBlockStorageDriver.h>
 
-NSString * const JRGDockStyleKey     = @"JRGDockStyle";
-NSString * const JRGDockKeepOnTopKey = @"JRGDockKeepOnTop";
-NSString * const JRGDockOffsetXKey   = @"JRGDockOffsetX";
-
-static const NSInteger JRGHistorySamples = 300;   // 5 minutes at one sample per second
+static const NSInteger JRGMaxHistorySamples = 30 * 60;   // 30 minutes at one sample per second
 static const NSTimeInterval JRGSampleInterval = 1.0;
-
-typedef NS_ENUM(NSInteger, JRGMetric) {
-    JRGMetricCPU = 0,
-    JRGMetricGPU,
-    JRGMetricMemory,
-    JRGMetricNetwork,
-    JRGMetricDisk,
-    JRGMetricCount
-};
-
-static NSColor *JRGHex(UInt32 hex, CGFloat alpha) {
-    return [NSColor colorWithSRGBRed:((hex >> 16) & 0xFF) / 255.0 green:((hex >> 8) & 0xFF) / 255.0 blue:(hex & 0xFF) / 255.0 alpha:alpha];
-}
-
-// Midnight neon palette: primary and secondary color per metric.
-static NSColor *JRGMetricColor(JRGMetric m, BOOL secondary) {
-    switch (m) {
-        case JRGMetricCPU:     return secondary ? JRGHex(0x0094B8, 1) : JRGHex(0x00E0FF, 1);
-        case JRGMetricGPU:     return secondary ? JRGHex(0xB18CFF, 1) : JRGHex(0x8B6BFF, 1);
-        case JRGMetricMemory:  return secondary ? JRGHex(0x7FC8FF, 1) : JRGHex(0x3D8BFF, 1);
-        case JRGMetricNetwork: return secondary ? JRGHex(0xA66BFF, 1) : JRGHex(0x00F0C8, 1);   // down mint, up violet
-        case JRGMetricDisk:    return secondary ? JRGHex(0x3D8BFF, 1) : JRGHex(0x2DE3A0, 1);   // read green, write blue
-        default:               return [NSColor whiteColor];
-    }
-}
-
-static NSString *JRGMetricName(JRGMetric m) {
-    switch (m) {
-        case JRGMetricCPU:     return @"CPU";
-        case JRGMetricGPU:     return @"GPU";
-        case JRGMetricMemory:  return @"MEMORY";
-        case JRGMetricNetwork: return @"NETWORK";
-        case JRGMetricDisk:    return @"DISK";
-        default:               return @"";
-    }
-}
 
 static BOOL JRGMetricIsDual(JRGMetric m) {
     return m == JRGMetricNetwork || m == JRGMetricDisk;
 }
 
-/// Splits a byte count into a short number and a unit, e.g. 22548578304 -> ("21.0", "G").
-static void JRGFormatBytes(double bytes, NSString **number, NSString **unit) {
-    NSArray *units = @[@"B", @"K", @"M", @"G", @"T"];
-    NSInteger u = 0;
-    while (bytes >= 1000.0 && u < (NSInteger)units.count - 1) { bytes /= 1024.0; u++; }
-    if (u == 0)            *number = [NSString stringWithFormat:@"%.0f", bytes];
-    else if (bytes < 100)  *number = [NSString stringWithFormat:@"%.1f", bytes];
-    else                   *number = [NSString stringWithFormat:@"%.0f", bytes];
-    *unit = units[u];
-}
-
-static NSString *JRGBytesString(double bytes) {
-    NSString *n, *u; JRGFormatBytes(bytes, &n, &u);
-    return [n stringByAppendingString:u];
+/// Primary and secondary colors for a metric, from the current theme.
+static NSColor *JRGMetricColor(JRGMetric m, BOOL secondary) {
+    JRGSettings *s = [JRGSettings shared];
+    switch (m) {
+        case JRGMetricCPU:         return [s colorForSlot:JRGColorCPU];
+        case JRGMetricGPU:         return [s colorForSlot:JRGColorGPU];
+        case JRGMetricMemory:      return [s colorForSlot:JRGColorMemory];
+        case JRGMetricNetwork:     return [s colorForSlot:secondary ? JRGColorNetUp : JRGColorNetDown];
+        case JRGMetricDisk:        return [s colorForSlot:secondary ? JRGColorDiskWrite : JRGColorDiskRead];
+        case JRGMetricTemperature: return [s colorForSlot:JRGColorTemperature];
+        default:                   return [NSColor whiteColor];
+    }
 }
 
 /// Reads total bytes read/written across all block storage devices.
@@ -102,31 +62,41 @@ static void JRGReadDiskCounters(UInt64 *readBytes, UInt64 *writeBytes) {
     IOObjectRelease(drives);
 }
 
-/// Values in chronological order (oldest first).
-static NSArray<NSNumber *> *JRGOrderedValues(XRGDataSet *set) {
+/// The most recent `count` values in chronological order (oldest first).
+static NSArray<NSNumber *> *JRGRecentValues(XRGDataSet *set, NSInteger count) {
     size_t n = set.numValues;
     if (n == 0) return @[];
     CGFloat *buf = malloc(n * sizeof(CGFloat));
     [set valuesInOrder:buf];
-    NSMutableArray *out = [NSMutableArray arrayWithCapacity:n];
-    for (size_t i = 0; i < n; i++) [out addObject:@(MAX(0, buf[i]))];
+    size_t start = (count > 0 && (size_t)count < n) ? n - count : 0;
+    NSMutableArray *out = [NSMutableArray arrayWithCapacity:n - start];
+    for (size_t i = start; i < n; i++) [out addObject:@(MAX(0, buf[i]))];
     free(buf);
     return out;
 }
 
-static CGFloat JRGPeak(XRGDataSet *set) {
+static CGFloat JRGPeakOf(NSArray<NSNumber *> *values) {
     CGFloat peak = 0;
-    for (NSNumber *v in JRGOrderedValues(set)) peak = MAX(peak, v.doubleValue);
+    for (NSNumber *v in values) peak = MAX(peak, v.doubleValue);
     return peak;
+}
+
+/// Chart range for single-series metrics.
+static void JRGChartRange(JRGMetric m, CGFloat *lo, CGFloat *hi) {
+    switch (m) {
+        case JRGMetricMemory:      *lo = 0;  *hi = 1;   break;
+        case JRGMetricTemperature: *lo = 20; *hi = 110; break;
+        default:                   *lo = 0;  *hi = 100; break;
+    }
 }
 
 #pragma mark - Chart drawing
 
 /// Draws a history chart into `rect` (in a flipped view). Samples are bucketed to the
 /// pixel width, keeping each bucket's maximum so short spikes stay visible.
-static void JRGDrawChart(NSArray<NSNumber *> *values, CGFloat maxValue, NSRect rect, NSColor *color, BOOL downward, CGFloat lineWidth) {
+static void JRGDrawChart(NSArray<NSNumber *> *values, CGFloat minValue, CGFloat maxValue, NSRect rect, NSColor *color, BOOL downward, CGFloat lineWidth) {
     if (values.count < 2 || rect.size.width < 2 || rect.size.height < 1) return;
-    if (maxValue <= 0) maxValue = 1;
+    if (maxValue <= minValue) maxValue = minValue + 1;
 
     NSInteger buckets = MAX(2, (NSInteger)floor(rect.size.width / 1.5));
     buckets = MIN(buckets, (NSInteger)values.count);
@@ -141,7 +111,7 @@ static void JRGDrawChart(NSArray<NSNumber *> *values, CGFloat maxValue, NSRect r
         NSInteger end = MAX(start + 1, (NSInteger)floor((b + 1) * perBucket));
         CGFloat v = 0;
         for (NSInteger i = start; i < end && i < (NSInteger)values.count; i++) v = MAX(v, values[i].doubleValue);
-        CGFloat frac = MIN(1, v / maxValue);
+        CGFloat frac = MIN(1, MAX(0, (v - minValue) / (maxValue - minValue)));
         NSPoint p = NSMakePoint(NSMinX(rect) + rect.size.width * b / (buckets - 1), baseY + dir * frac * rect.size.height);
         if (b == 0) [line moveToPoint:p]; else [line lineToPoint:p];
     }
@@ -155,7 +125,6 @@ static void JRGDrawChart(NSArray<NSNumber *> *values, CGFloat maxValue, NSRect r
     [area addClip];
     NSGradient *g = [[NSGradient alloc] initWithStartingColor:[color colorWithAlphaComponent:0.10]
                                                   endingColor:[color colorWithAlphaComponent:0.55]];
-    // In a flipped view, angle 90 runs top to bottom visually reversed; pick so the fill is strongest near the line.
     [g drawInRect:rect angle:(downward ? 90 : -90)];
     [NSGraphicsContext restoreGraphicsState];
 
@@ -171,14 +140,16 @@ static void JRGDrawChart(NSArray<NSNumber *> *values, CGFloat maxValue, NSRect r
 @interface JRGStripLayout : NSObject
 @property CGFloat height, padding, gap, sectionGap, chartWidth, chartHeight;
 @property NSFont *labelFont, *bigFont, *unitFont, *dualFont;
-@property NSArray<NSValue *> *sectionRects;   // one per metric, in view coordinates
-@property NSArray<NSNumber *> *blockWidths;    // width of the label/number block per metric
+@property NSArray<NSNumber *> *metrics;         // metric shown in each section, left to right
+@property NSArray<NSValue *> *sectionRects;     // one per section, in view coordinates
+@property NSArray<NSNumber *> *blockWidths;     // width of the label/number block per section
 @property CGFloat totalWidth;
 @end
 
 @implementation JRGStripLayout
 
 + (instancetype)layoutForHeight:(CGFloat)h {
+    JRGSettings *settings = [JRGSettings shared];
     JRGStripLayout *L = [[JRGStripLayout alloc] init];
     L.height = h;
     L.padding = round(h * 0.26);
@@ -186,10 +157,11 @@ static void JRGDrawChart(NSArray<NSNumber *> *values, CGFloat maxValue, NSRect r
     L.sectionGap = round(h * 0.36);
     L.chartWidth = round(h * 0.95);
     L.chartHeight = round(h * 0.46);
-    L.labelFont = [NSFont systemFontOfSize:MAX(10, round(h * 0.155)) weight:NSFontWeightSemibold];
+    L.labelFont = [NSFont systemFontOfSize:MAX(9, round(h * 0.155)) weight:NSFontWeightSemibold];
     L.bigFont = [NSFont monospacedDigitSystemFontOfSize:round(h * 0.36) weight:NSFontWeightMedium];
     L.unitFont = [NSFont systemFontOfSize:round(h * 0.2) weight:NSFontWeightRegular];
     L.dualFont = [NSFont monospacedDigitSystemFontOfSize:round(h * 0.23) weight:NSFontWeightMedium];
+    L.metrics = [settings enabledMetrics];
 
     NSDictionary *labelAttrs = @{NSFontAttributeName: L.labelFont, NSKernAttributeName: @(0.6)};
     NSDictionary *bigAttrs = @{NSFontAttributeName: L.bigFont};
@@ -199,21 +171,23 @@ static void JRGDrawChart(NSArray<NSNumber *> *values, CGFloat maxValue, NSRect r
     NSMutableArray *rects = [NSMutableArray array];
     NSMutableArray *blocks = [NSMutableArray array];
     CGFloat x = L.padding;
-    for (JRGMetric m = 0; m < JRGMetricCount; m++) {
+    for (NSUInteger i = 0; i < L.metrics.count; i++) {
+        JRGMetric m = L.metrics[i].integerValue;
         CGFloat labelW = [JRGMetricName(m) sizeWithAttributes:labelAttrs].width;
         CGFloat numW;
         if (JRGMetricIsDual(m)) {
-            numW = [@"↓ 999.9M" sizeWithAttributes:dualAttrs].width;
+            NSString *tmpl = (m == JRGMetricNetwork && settings.networkInBits) ? @"↓ 999.9Mb" : @"↓ 999.9M";
+            numW = [tmpl sizeWithAttributes:dualAttrs].width;
         } else {
             NSString *tmpl = (m == JRGMetricMemory) ? @"99.9" : @"100";
-            NSString *unit = (m == JRGMetricMemory) ? @"G" : @"%";
+            NSString *unit = (m == JRGMetricMemory) ? @"G" : (m == JRGMetricTemperature) ? @"°C" : @"%";
             numW = [tmpl sizeWithAttributes:bigAttrs].width + [unit sizeWithAttributes:unitAttrs].width + 1;
         }
         CGFloat blockW = ceil(MAX(labelW, numW));
         CGFloat w = blockW + L.gap + L.chartWidth;
         [rects addObject:[NSValue valueWithRect:NSMakeRect(x, 0, w, h)]];
         [blocks addObject:@(blockW)];
-        x += w + (m < JRGMetricCount - 1 ? L.sectionGap : 0);
+        x += w + (i + 1 < L.metrics.count ? L.sectionGap : 0);
     }
     L.sectionRects = rects;
     L.blockWidths = blocks;
@@ -225,13 +199,11 @@ static void JRGDrawChart(NSArray<NSNumber *> *values, CGFloat maxValue, NSRect r
 
 #pragma mark - Strip view
 
-@class XRGDockStripController;
-
 @interface JRGStripView : NSView
 @property (weak) XRGDockStripController *controller;
 @property JRGStripLayout *layout;
 @property BOOL bare;
-@property NSInteger hoveredMetric;
+@property BOOL interactive;   // NO for the preview in Settings
 @end
 
 @interface XRGDockStripController ()
@@ -244,6 +216,7 @@ static void JRGDrawChart(NSArray<NSNumber *> *values, CGFloat maxValue, NSRect r
 @property NSTimer *hoverTimer;
 @property NSInteger pendingHoverMetric;
 @property BOOL adjustingPosition;
+@property NSHashTable<JRGStripView *> *previewViews;
 
 @property XRGCPUMiner *cpuMiner;
 @property XRGGPUMiner *gpuMiner;
@@ -251,37 +224,56 @@ static void JRGDrawChart(NSArray<NSNumber *> *values, CGFloat maxValue, NSRect r
 @property XRGNetMiner *netMiner;
 @property UInt64 lastDiskRead, lastDiskWrite, diskReadSinceLaunch, diskWriteSinceLaunch;
 @property NSDate *lastDiskSample;
+@property BOOL seeded;
 
 // History: index 0 is the primary series, index 1 the secondary (network up, disk write).
 @property NSArray<NSArray<XRGDataSet *> *> *history;
-@property CGFloat cpuNow, gpuNow, vramUsed, vramTotal;
+@property CGFloat cpuNow, gpuNow, vramUsed, vramTotal, tempNow;
 @property UInt64 memUsed, memTotal;
 @property CGFloat netDown, netUp, diskRead, diskWrite;
+@property NSArray<NSArray *> *hottestSensors;   // (label, °C) pairs, hottest first
 
 - (NSMenu *)stripMenu;
 - (void)hoverChangedTo:(NSInteger)metric;
-- (void)drawMetric:(JRGMetric)m inRect:(NSRect)rect layout:(JRGStripLayout *)L bare:(BOOL)bare;
+- (NSArray<NSNumber *> *)valuesFor:(JRGMetric)m series:(NSInteger)series;
+- (void)drawMetric:(JRGMetric)m inRect:(NSRect)rect blockWidth:(CGFloat)blockW layout:(JRGStripLayout *)L bare:(BOOL)bare;
 @end
 
 @implementation JRGStripView
 
 - (BOOL)isFlipped { return YES; }
-- (BOOL)mouseDownCanMoveWindow { return YES; }
+- (BOOL)mouseDownCanMoveWindow { return self.interactive; }
 - (BOOL)acceptsFirstMouse:(NSEvent *)event { return YES; }
+
+- (NSSize)intrinsicContentSize {
+    return self.layout ? NSMakeSize(self.layout.totalWidth, self.layout.height) : NSMakeSize(NSViewNoIntrinsicMetric, NSViewNoIntrinsicMetric);
+}
+
+- (void)setLayout:(JRGStripLayout *)layout {
+    _layout = layout;
+    [self invalidateIntrinsicContentSize];
+}
 
 - (void)updateTrackingAreas {
     [super updateTrackingAreas];
     for (NSTrackingArea *t in self.trackingAreas) [self removeTrackingArea:t];
+    if (!self.interactive) return;
     [self addTrackingArea:[[NSTrackingArea alloc] initWithRect:self.bounds
                                                        options:NSTrackingMouseMoved | NSTrackingMouseEnteredAndExited | NSTrackingActiveAlways | NSTrackingInVisibleRect
                                                          owner:self userInfo:nil]];
 }
 
+/// The metric under the point, or -1.
 - (NSInteger)metricAtPoint:(NSPoint)p {
-    for (NSInteger i = 0; i < (NSInteger)self.layout.sectionRects.count; i++) {
-        if (NSPointInRect(p, [self.layout.sectionRects[i] rectValue])) return i;
+    for (NSUInteger i = 0; i < self.layout.sectionRects.count; i++) {
+        if (NSPointInRect(p, [self.layout.sectionRects[i] rectValue])) return self.layout.metrics[i].integerValue;
     }
     return -1;
+}
+
+- (NSRect)rectForMetric:(NSInteger)metric {
+    NSUInteger i = [self.layout.metrics indexOfObject:@(metric)];
+    return i == NSNotFound ? NSZeroRect : [self.layout.sectionRects[i] rectValue];
 }
 
 - (void)mouseMoved:(NSEvent *)event {
@@ -291,12 +283,13 @@ static void JRGDrawChart(NSArray<NSNumber *> *values, CGFloat maxValue, NSRect r
 - (void)mouseEntered:(NSEvent *)event { [self mouseMoved:event]; }
 - (void)mouseExited:(NSEvent *)event  { [self.controller hoverChangedTo:-1]; }
 
-- (NSMenu *)menuForEvent:(NSEvent *)event { return [self.controller stripMenu]; }
+- (NSMenu *)menuForEvent:(NSEvent *)event { return self.interactive ? [self.controller stripMenu] : nil; }
 
 - (void)drawRect:(NSRect)dirtyRect {
     JRGStripLayout *L = self.layout;
-    for (JRGMetric m = 0; m < JRGMetricCount; m++) {
-        [self.controller drawMetric:m inRect:[L.sectionRects[m] rectValue] layout:L bare:self.bare];
+    for (NSUInteger i = 0; i < L.metrics.count; i++) {
+        [self.controller drawMetric:L.metrics[i].integerValue inRect:[L.sectionRects[i] rectValue]
+                         blockWidth:[L.blockWidths[i] doubleValue] layout:L bare:self.bare];
     }
 }
 
@@ -321,35 +314,32 @@ static void JRGDrawChart(NSArray<NSNumber *> *values, CGFloat maxValue, NSRect r
     return shared;
 }
 
-+ (void)initialize {
-    if (self == [XRGDockStripController class]) {
-        [[NSUserDefaults standardUserDefaults] registerDefaults:@{
-            JRGDockStyleKey: @"glass",
-            JRGDockKeepOnTopKey: @YES,
-            JRGDockOffsetXKey: @12,
-        }];
-    }
-}
-
 - (instancetype)init {
     if (self = [super init]) {
         _pendingHoverMetric = -1;
+        _previewViews = [NSHashTable weakObjectsHashTable];
         NSMutableArray *hist = [NSMutableArray array];
         for (JRGMetric m = 0; m < JRGMetricCount; m++) {
-            XRGDataSet *a = [[XRGDataSet alloc] init]; [a resize:JRGHistorySamples]; [a setAllValues:0];
-            XRGDataSet *b = [[XRGDataSet alloc] init]; [b resize:JRGHistorySamples]; [b setAllValues:0];
+            XRGDataSet *a = [[XRGDataSet alloc] init]; [a resize:JRGMaxHistorySamples]; [a setAllValues:0];
+            XRGDataSet *b = [[XRGDataSet alloc] init]; [b resize:JRGMaxHistorySamples]; [b setAllValues:0];
             [hist addObject:@[a, b]];
         }
         _history = hist;
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(settingsChanged:)
+                                                     name:JRGSettingsDidChangeNotification object:nil];
     }
     return self;
 }
 
-- (BOOL)isGlass {
-    return ![[[NSUserDefaults standardUserDefaults] stringForKey:JRGDockStyleKey] isEqualToString:@"bare"];
+- (NSInteger)visibleSamples {
+    return [JRGSettings shared].historyMinutes * 60;
 }
 
-#pragma mark Showing and hiding
+- (NSArray<NSNumber *> *)valuesFor:(JRGMetric)m series:(NSInteger)series {
+    return JRGRecentValues(self.history[m][series], [self visibleSamples]);
+}
+
+#pragma mark Showing
 
 - (void)showDockStrip {
     [self startSampling];
@@ -360,6 +350,34 @@ static void JRGDrawChart(NSArray<NSNumber *> *values, CGFloat maxValue, NSRect r
 }
 
 - (IBAction)showSettings:(id)sender {
+    [[JRGSettingsWindowController shared] showWindow:sender];
+}
+
+- (void)settingsChanged:(NSNotification *)note {
+    [self hoverChangedTo:-1];
+    self.stripView.layout = nil;   // rebuilt by positionStrip for the new metrics/units/size
+    [self applyStyle];
+    [self positionStrip];
+    for (JRGStripView *v in self.previewViews) {
+        v.layout = [JRGStripLayout layoutForHeight:v.layout.height];
+        v.bare = ![JRGSettings shared].glass;
+        v.needsDisplay = YES;
+    }
+}
+
+- (CGFloat)stripWidthForHeight:(CGFloat)height {
+    return [JRGStripLayout layoutForHeight:height].totalWidth;
+}
+
+- (NSView *)makePreviewViewWithHeight:(CGFloat)height {
+    [self startSampling];
+    JRGStripView *v = [[JRGStripView alloc] initWithFrame:NSZeroRect];
+    v.controller = self;
+    v.interactive = NO;
+    v.bare = ![JRGSettings shared].glass;
+    v.layout = [JRGStripLayout layoutForHeight:height];
+    [self.previewViews addObject:v];
+    return v;
 }
 
 - (void)buildWindowIfNeeded {
@@ -383,7 +401,7 @@ static void JRGDrawChart(NSArray<NSNumber *> *values, CGFloat maxValue, NSRect r
     JRGStripView *v = [[JRGStripView alloc] initWithFrame:container.bounds];
     v.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
     v.controller = self;
-    v.hoveredMetric = -1;
+    v.interactive = YES;
     [container addSubview:v];
 
     self.stripWindow = w;
@@ -394,7 +412,9 @@ static void JRGDrawChart(NSArray<NSNumber *> *values, CGFloat maxValue, NSRect r
 }
 
 - (void)applyStyle {
-    BOOL glass = [self isGlass];
+    if (!self.stripWindow) return;
+    JRGSettings *s = [JRGSettings shared];
+    BOOL glass = s.glass;
     [self.glassView removeFromSuperview];
     self.glassView = nil;
 
@@ -423,8 +443,7 @@ static void JRGDrawChart(NSArray<NSNumber *> *values, CGFloat maxValue, NSRect r
     }
 
     self.stripView.bare = !glass;
-    BOOL onTop = [[NSUserDefaults standardUserDefaults] boolForKey:JRGDockKeepOnTopKey];
-    self.stripWindow.level = onTop ? NSFloatingWindowLevel : NSNormalWindowLevel;
+    self.stripWindow.level = s.keepOnTop ? NSFloatingWindowLevel : NSNormalWindowLevel;
     self.stripView.needsDisplay = YES;
 }
 
@@ -444,11 +463,16 @@ static void JRGDrawChart(NSArray<NSNumber *> *values, CGFloat maxValue, NSRect r
     CGFloat band = NSMinY(screen.visibleFrame) - NSMinY(sf);
     if (band < 30) band = 76;   // Dock hidden or on the side: use a Dock-like band at the bottom.
 
-    CGFloat h = MIN(84, MAX(46, round(band - 14)));
-    JRGStripLayout *L = [JRGStripLayout layoutForHeight:h];
-    CGFloat w = L.totalWidth;
+    CGFloat h;
+    switch ([JRGSettings shared].stripSize) {
+        case JRGStripSizeCompact: h = MIN(60, MAX(40, round(band - 26))); break;
+        case JRGStripSizeLarge:   h = MIN(100, MAX(50, round(band - 6))); break;
+        default:                  h = MIN(84, MAX(46, round(band - 14))); break;
+    }
+    CGFloat w = (self.stripView.layout && self.stripView.layout.height == h) ? self.stripView.layout.totalWidth
+                                                                              : [JRGStripLayout layoutForHeight:h].totalWidth;
 
-    CGFloat offset = [[NSUserDefaults standardUserDefaults] doubleForKey:JRGDockOffsetXKey];
+    CGFloat offset = [JRGSettings shared].offsetX;
     CGFloat x = NSMinX(sf) + MIN(MAX(0, offset), sf.size.width - w);
     CGFloat y = NSMinY(sf) + round((band - h) / 2.0);
     return NSMakeRect(x, y, w, h);
@@ -459,6 +483,7 @@ static void JRGDrawChart(NSArray<NSNumber *> *values, CGFloat maxValue, NSRect r
     NSRect target = [self targetFrame];
     if (!self.stripView.layout || self.stripView.layout.height != target.size.height) {
         self.stripView.layout = [JRGStripLayout layoutForHeight:target.size.height];
+        target.size.width = self.stripView.layout.totalWidth;
     }
     if (!NSEqualRects(self.stripWindow.frame, target)) {
         self.adjustingPosition = YES;
@@ -480,8 +505,7 @@ static void JRGDrawChart(NSArray<NSNumber *> *values, CGFloat maxValue, NSRect r
 - (void)windowDidMove:(NSNotification *)note {
     if (self.adjustingPosition || note.object != self.stripWindow) return;
     NSRect sf = [self dockScreen].frame;
-    CGFloat offset = NSMinX(self.stripWindow.frame) - NSMinX(sf);
-    [[NSUserDefaults standardUserDefaults] setDouble:round(offset) forKey:JRGDockOffsetXKey];
+    [JRGSettings shared].offsetX = NSMinX(self.stripWindow.frame) - NSMinX(sf);
     [self positionStrip];
 }
 
@@ -514,7 +538,27 @@ static void JRGDrawChart(NSArray<NSNumber *> *values, CGFloat maxValue, NSRect r
     [[NSRunLoop mainRunLoop] addTimer:self.sampleTimer forMode:NSRunLoopCommonModes];
 }
 
+/// Reads the temperature sensors (the miner itself refreshes every 5 calls) and keeps the hottest.
+- (void)sampleTemperature {
+    XRGTemperatureMiner *tm = [XRGTemperatureMiner shared];
+    [tm updateCurrentTemperatures:NO];
+    NSMutableArray *readings = [NSMutableArray array];
+    for (NSString *key in [tm locationKeysIncludingUnknown:NO]) {
+        XRGSensorData *sensor = [tm sensorForLocation:key];
+        if (!sensor || !sensor.isEnabled || [tm isFanSensor:sensor] || ![sensor.units hasSuffix:@"C"]) continue;
+        if (sensor.currentValue <= 0 || sensor.currentValue > 150) continue;
+        [readings addObject:@[[sensor label] ?: key, @(sensor.currentValue)]];
+    }
+    [readings sortUsingComparator:^NSComparisonResult(NSArray *a, NSArray *b) { return [b[1] compare:a[1]]; }];
+    if (readings.count) {
+        self.hottestSensors = readings;
+        self.tempNow = [readings[0][1] doubleValue];
+    }
+}
+
 - (void)sample:(NSTimer *)timer {
+    JRGSettings *settings = [JRGSettings shared];
+
     // CPU: average across all cores, 0-100%.
     [self.cpuMiner graphUpdate:nil];
     CGFloat total = 0;
@@ -552,34 +596,43 @@ static void JRGDrawChart(NSArray<NSNumber *> *values, CGFloat maxValue, NSRect r
     self.diskReadSinceLaunch += dr; self.diskWriteSinceLaunch += dw;
     self.lastDiskRead = r; self.lastDiskWrite = w; self.lastDiskSample = [NSDate date];
 
+    // Temperature only costs anything while it's shown.
+    if ([settings isMetricEnabled:JRGMetricTemperature]) [self sampleTemperature];
+
+    CGFloat memFrac = self.memTotal ? (CGFloat)self.memUsed / self.memTotal : 0;
+
     // On the first sample, fill the history with it so charts start as a flat line
     // at the current level instead of climbing up from zero.
-    static BOOL seeded = NO;
-    if (!seeded) {
-        seeded = YES;
+    if (!self.seeded) {
+        self.seeded = YES;
         [self.history[JRGMetricCPU][0] setAllValues:self.cpuNow];
         [self.history[JRGMetricGPU][0] setAllValues:self.gpuNow];
-        [self.history[JRGMetricMemory][0] setAllValues:self.memTotal ? (CGFloat)self.memUsed / self.memTotal : 0];
+        [self.history[JRGMetricMemory][0] setAllValues:memFrac];
+    }
+    if (self.tempNow > 0 && [self.history[JRGMetricTemperature][0] max] <= 0) {
+        [self.history[JRGMetricTemperature][0] setAllValues:self.tempNow];
     }
 
     [self.history[JRGMetricCPU][0] setNextValue:self.cpuNow];
     [self.history[JRGMetricGPU][0] setNextValue:self.gpuNow];
-    [self.history[JRGMetricMemory][0] setNextValue:self.memTotal ? (CGFloat)self.memUsed / self.memTotal : 0];
+    [self.history[JRGMetricMemory][0] setNextValue:memFrac];
     [self.history[JRGMetricNetwork][0] setNextValue:self.netDown];
     [self.history[JRGMetricNetwork][1] setNextValue:self.netUp];
     [self.history[JRGMetricDisk][0] setNextValue:self.diskRead];
     [self.history[JRGMetricDisk][1] setNextValue:self.diskWrite];
+    [self.history[JRGMetricTemperature][0] setNextValue:self.tempNow];
 
     [self positionStrip];   // follows Dock size and display changes
     self.stripView.needsDisplay = YES;
+    for (JRGStripView *v in self.previewViews) v.needsDisplay = YES;
     if (self.detailWindow.isVisible) [self refreshDetail];
 }
 
 #pragma mark Drawing a metric
 
-- (void)drawMetric:(JRGMetric)m inRect:(NSRect)rect layout:(JRGStripLayout *)L bare:(BOOL)bare {
+- (void)drawMetric:(JRGMetric)m inRect:(NSRect)rect blockWidth:(CGFloat)blockW layout:(JRGStripLayout *)L bare:(BOOL)bare {
+    JRGSettings *settings = [JRGSettings shared];
     CGFloat h = L.height;
-    CGFloat blockW = [L.blockWidths[m] doubleValue];
     NSColor *c1 = JRGMetricColor(m, NO), *c2 = JRGMetricColor(m, YES);
 
     NSShadow *shadow = nil;
@@ -606,24 +659,24 @@ static void JRGDrawChart(NSArray<NSNumber *> *values, CGFloat maxValue, NSRect r
     CGFloat y = top + labelH - 1;
 
     if (JRGMetricIsDual(m)) {
-        CGFloat a = (m == JRGMetricNetwork) ? self.netDown : self.diskRead;
-        CGFloat b = (m == JRGMetricNetwork) ? self.netUp : self.diskWrite;
-        NSString *aGlyph = (m == JRGMetricNetwork) ? @"↓" : @"R";
-        NSString *bGlyph = (m == JRGMetricNetwork) ? @"↑" : @"W";
+        BOOL net = (m == JRGMetricNetwork);
+        CGFloat a = net ? self.netDown : self.diskRead;
+        CGFloat b = net ? self.netUp : self.diskWrite;
         CGFloat lineH = ceil(L.dualFont.ascender - L.dualFont.descender);
-        NSArray *rows = @[@[aGlyph, @(a), c1], @[bGlyph, @(b), c2]];
+        NSArray *rows = @[@[net ? @"↓" : @"R", @(a), c1], @[net ? @"↑" : @"W", @(b), c2]];
         for (NSArray *row in rows) {
             NSMutableAttributedString *s = [[NSMutableAttributedString alloc] init];
             NSMutableDictionary *glyphAttrs = [dualAttrs mutableCopy];
             glyphAttrs[NSForegroundColorAttributeName] = row[2];
             [s appendAttributedString:[[NSAttributedString alloc] initWithString:[row[0] stringByAppendingString:@" "] attributes:glyphAttrs]];
-            [s appendAttributedString:[[NSAttributedString alloc] initWithString:JRGBytesString([row[1] doubleValue]) attributes:dualAttrs]];
+            [s appendAttributedString:[[NSAttributedString alloc] initWithString:[settings rateString:[row[1] doubleValue] network:net] attributes:dualAttrs]];
             [s drawAtPoint:NSMakePoint(NSMinX(rect), y)];
             y += lineH;
         }
     } else {
         NSString *num, *unit;
-        if (m == JRGMetricMemory) { JRGFormatBytes(self.memUsed, &num, &unit); }
+        if (m == JRGMetricMemory) { [settings formatBytes:self.memUsed number:&num unit:&unit]; }
+        else if (m == JRGMetricTemperature) { num = self.tempNow > 0 ? [NSString stringWithFormat:@"%.0f", self.tempNow] : @"–"; unit = @"°C"; }
         else { num = [NSString stringWithFormat:@"%.0f", (m == JRGMetricCPU) ? self.cpuNow : self.gpuNow]; unit = @"%"; }
         NSMutableAttributedString *s = [[NSMutableAttributedString alloc] initWithString:num attributes:bigAttrs];
         [s appendAttributedString:[[NSAttributedString alloc] initWithString:unit attributes:unitAttrs]];
@@ -633,19 +686,19 @@ static void JRGDrawChart(NSArray<NSNumber *> *values, CGFloat maxValue, NSRect r
     // History chart beside the numbers.
     NSRect chart = NSMakeRect(NSMinX(rect) + blockW + L.gap, round((h - L.chartHeight) / 2.0), L.chartWidth, L.chartHeight);
     CGFloat lw = bare ? 1.8 : 1.5;
-    NSArray *v1 = JRGOrderedValues(self.history[m][0]);
+    NSArray *v1 = [self valuesFor:m series:0];
     if (JRGMetricIsDual(m)) {
-        NSArray *v2 = JRGOrderedValues(self.history[m][1]);
-        CGFloat peak = MAX(10 * 1024, MAX(JRGPeak(self.history[m][0]), JRGPeak(self.history[m][1])));
+        NSArray *v2 = [self valuesFor:m series:1];
+        CGFloat peak = MAX(10 * 1024, MAX(JRGPeakOf(v1), JRGPeakOf(v2)));
         NSRect upper = NSMakeRect(chart.origin.x, chart.origin.y, chart.size.width, floor(chart.size.height / 2) - 0.5);
         NSRect lower = NSMakeRect(chart.origin.x, NSMaxY(upper) + 1, chart.size.width, upper.size.height);
-        JRGDrawChart(v1, peak, upper, c1, NO, lw);
-        JRGDrawChart(v2, peak, lower, c2, YES, lw);
+        JRGDrawChart(v1, 0, peak, upper, c1, NO, lw);
+        JRGDrawChart(v2, 0, peak, lower, c2, YES, lw);
         [[NSColor colorWithWhite:1 alpha:0.22] setFill];
         NSRectFillUsingOperation(NSMakeRect(chart.origin.x, NSMaxY(upper), chart.size.width, 0.5), NSCompositingOperationSourceOver);
     } else {
-        CGFloat max = (m == JRGMetricMemory) ? 1.0 : 100.0;
-        JRGDrawChart(v1, max, chart, c1, NO, lw);
+        CGFloat lo, hi; JRGChartRange(m, &lo, &hi);
+        JRGDrawChart(v1, lo, hi, chart, c1, NO, lw);
     }
 }
 
@@ -713,7 +766,7 @@ static void JRGDrawChart(NSArray<NSNumber *> *values, CGFloat maxValue, NSRect r
     ((JRGDetailView *)self.detailView).metric = metric;
     [self refreshDetail];
 
-    NSRect section = [self.stripView.layout.sectionRects[metric] rectValue];
+    NSRect section = [self.stripView rectForMetric:metric];
     NSRect strip = self.stripWindow.frame;
     NSRect sf = [self dockScreen].frame;
     NSSize size = self.detailWindow.frame.size;
@@ -725,15 +778,20 @@ static void JRGDrawChart(NSArray<NSNumber *> *values, CGFloat maxValue, NSRect r
 }
 
 static NSString *JRGPercent(CGFloat v) { return [NSString stringWithFormat:@"%.0f%%", v]; }
+static NSString *JRGDegrees(CGFloat v) { return [NSString stringWithFormat:@"%.0f°C", v]; }
 
 - (void)refreshDetail {
+    JRGSettings *s = [JRGSettings shared];
     JRGDetailView *dv = (JRGDetailView *)self.detailView;
     JRGMetric m = dv.metric;
+    NSString *peakLabel = [NSString stringWithFormat:@"%ld-min peak", (long)s.historyMinutes];
+    NSArray *v1 = [self valuesFor:m series:0], *v2 = [self valuesFor:m series:1];
+    NSString *(^rate)(double, BOOL) = ^NSString *(double v, BOOL net) { return [[s rateString:v network:net] stringByAppendingString:@"/s"]; };
     NSMutableArray *stats = [NSMutableArray array];
     switch (m) {
         case JRGMetricCPU: {
             [stats addObject:@[@"Usage", JRGPercent(self.cpuNow)]];
-            [stats addObject:@[@"5-min peak", JRGPercent(JRGPeak(self.history[m][0]))]];
+            [stats addObject:@[peakLabel, JRGPercent(JRGPeakOf(v1))]];
             [stats addObject:@[@"Load avg", [NSString stringWithFormat:@"%.2f", self.cpuMiner.currentLoadAverage]]];
             [stats addObject:@[@"Cores", [NSString stringWithFormat:@"%ld", (long)self.cpuMiner.numberOfCPUs]]];
             [stats addObject:@[@"Uptime", [NSString stringWithFormat:@"%ldd %ldh %ldm", (long)self.cpuMiner.uptimeDays, (long)self.cpuMiner.uptimeHours, (long)self.cpuMiner.uptimeMinutes]]];
@@ -741,36 +799,48 @@ static NSString *JRGPercent(CGFloat v) { return [NSString stringWithFormat:@"%.0
         }
         case JRGMetricGPU: {
             [stats addObject:@[@"Usage", JRGPercent(self.gpuNow)]];
-            [stats addObject:@[@"5-min peak", JRGPercent(JRGPeak(self.history[m][0]))]];
-            [stats addObject:@[@"GPU memory", JRGBytesString(self.vramUsed)]];
-            [stats addObject:@[@"Available", JRGBytesString(self.vramTotal)]];
+            [stats addObject:@[peakLabel, JRGPercent(JRGPeakOf(v1))]];
+            [stats addObject:@[@"GPU memory", [s bytesString:self.vramUsed]]];
+            [stats addObject:@[@"Available", [s bytesString:self.vramTotal]]];
             break;
         }
         case JRGMetricMemory: {
-            [stats addObject:@[@"Used", JRGBytesString(self.memUsed)]];
-            [stats addObject:@[@"Installed", JRGBytesString(self.memTotal)]];
-            [stats addObject:@[@"Active", JRGBytesString(self.memoryMiner.activeBytes)]];
-            [stats addObject:@[@"Wired", JRGBytesString(self.memoryMiner.wiredBytes)]];
-            [stats addObject:@[@"Inactive", JRGBytesString(self.memoryMiner.inactiveBytes)]];
-            [stats addObject:@[@"Free", JRGBytesString(self.memoryMiner.freeBytes)]];
-            [stats addObject:@[@"Swap", JRGBytesString(self.memoryMiner.usedSwap)]];
+            [stats addObject:@[@"Used", [s bytesString:self.memUsed]]];
+            [stats addObject:@[@"Installed", [s bytesString:self.memTotal]]];
+            [stats addObject:@[@"Active", [s bytesString:self.memoryMiner.activeBytes]]];
+            [stats addObject:@[@"Wired", [s bytesString:self.memoryMiner.wiredBytes]]];
+            [stats addObject:@[@"Inactive", [s bytesString:self.memoryMiner.inactiveBytes]]];
+            [stats addObject:@[@"Free", [s bytesString:self.memoryMiner.freeBytes]]];
+            [stats addObject:@[@"Swap", [s bytesString:self.memoryMiner.usedSwap]]];
             break;
         }
         case JRGMetricNetwork: {
-            [stats addObject:@[@"Down", [JRGBytesString(self.netDown) stringByAppendingString:@"/s"]]];
-            [stats addObject:@[@"Up", [JRGBytesString(self.netUp) stringByAppendingString:@"/s"]]];
-            [stats addObject:@[@"Peak down", [JRGBytesString(JRGPeak(self.history[m][0])) stringByAppendingString:@"/s"]]];
-            [stats addObject:@[@"Peak up", [JRGBytesString(JRGPeak(self.history[m][1])) stringByAppendingString:@"/s"]]];
-            [stats addObject:@[@"Since boot", JRGBytesString(self.netMiner.totalBytesSinceBoot)]];
+            [stats addObject:@[@"Down", rate(self.netDown, YES)]];
+            [stats addObject:@[@"Up", rate(self.netUp, YES)]];
+            [stats addObject:@[@"Peak down", rate(JRGPeakOf(v1), YES)]];
+            [stats addObject:@[@"Peak up", rate(JRGPeakOf(v2), YES)]];
+            [stats addObject:@[@"Since boot", [s bytesString:self.netMiner.totalBytesSinceBoot]]];
             break;
         }
         case JRGMetricDisk: {
-            [stats addObject:@[@"Read", [JRGBytesString(self.diskRead) stringByAppendingString:@"/s"]]];
-            [stats addObject:@[@"Write", [JRGBytesString(self.diskWrite) stringByAppendingString:@"/s"]]];
-            [stats addObject:@[@"Peak read", [JRGBytesString(JRGPeak(self.history[m][0])) stringByAppendingString:@"/s"]]];
-            [stats addObject:@[@"Peak write", [JRGBytesString(JRGPeak(self.history[m][1])) stringByAppendingString:@"/s"]]];
-            [stats addObject:@[@"Read total", JRGBytesString(self.diskReadSinceLaunch)]];
-            [stats addObject:@[@"Write total", JRGBytesString(self.diskWriteSinceLaunch)]];
+            [stats addObject:@[@"Read", rate(self.diskRead, NO)]];
+            [stats addObject:@[@"Write", rate(self.diskWrite, NO)]];
+            [stats addObject:@[@"Peak read", rate(JRGPeakOf(v1), NO)]];
+            [stats addObject:@[@"Peak write", rate(JRGPeakOf(v2), NO)]];
+            [stats addObject:@[@"Read total", [s bytesString:self.diskReadSinceLaunch]]];
+            [stats addObject:@[@"Write total", [s bytesString:self.diskWriteSinceLaunch]]];
+            break;
+        }
+        case JRGMetricTemperature: {
+            [stats addObject:@[@"Hottest", self.tempNow > 0 ? JRGDegrees(self.tempNow) : @"–"]];
+            [stats addObject:@[peakLabel, JRGDegrees(JRGPeakOf(v1))]];
+            NSUInteger shown = 0;
+            for (NSArray *reading in self.hottestSensors) {
+                if (shown++ >= 6) break;
+                NSString *label = reading[0];
+                if (label.length > 14) label = [[label substringToIndex:13] stringByAppendingString:@"…"];
+                [stats addObject:@[label, JRGDegrees([reading[1] doubleValue])]];
+            }
             break;
         }
         default: break;
@@ -791,20 +861,19 @@ static NSString *JRGPercent(CGFloat v) { return [NSString stringWithFormat:@"%.0
 #pragma mark Menu
 
 - (NSMenu *)stripMenu {
+    JRGSettings *s = [JRGSettings shared];
     NSMenu *menu = [[NSMenu alloc] initWithTitle:@"JRG"];
-    BOOL glass = [self isGlass];
 
     NSMenuItem *glassItem = [menu addItemWithTitle:@"Glass" action:@selector(setGlassStyle:) keyEquivalent:@""];
-    glassItem.target = self; glassItem.state = glass ? NSControlStateValueOn : NSControlStateValueOff;
+    glassItem.target = self; glassItem.state = s.glass ? NSControlStateValueOn : NSControlStateValueOff;
     NSMenuItem *bareItem = [menu addItemWithTitle:@"Bare" action:@selector(setBareStyle:) keyEquivalent:@""];
-    bareItem.target = self; bareItem.state = glass ? NSControlStateValueOff : NSControlStateValueOn;
+    bareItem.target = self; bareItem.state = s.glass ? NSControlStateValueOff : NSControlStateValueOn;
     [menu addItem:[NSMenuItem separatorItem]];
 
     NSMenuItem *top = [menu addItemWithTitle:@"Keep on Top" action:@selector(toggleKeepOnTop:) keyEquivalent:@""];
     top.target = self;
-    top.state = [[NSUserDefaults standardUserDefaults] boolForKey:JRGDockKeepOnTopKey] ? NSControlStateValueOn : NSControlStateValueOff;
-    NSMenuItem *reset = [menu addItemWithTitle:@"Move Back to Left Edge" action:@selector(resetPosition:) keyEquivalent:@""];
-    reset.target = self;
+    top.state = s.keepOnTop ? NSControlStateValueOn : NSControlStateValueOff;
+    [menu addItemWithTitle:@"Move Back to Left Edge" action:@selector(resetPosition:) keyEquivalent:@""].target = self;
     [menu addItem:[NSMenuItem separatorItem]];
 
     [menu addItemWithTitle:@"Settings…" action:@selector(showSettings:) keyEquivalent:@""].target = self;
@@ -813,24 +882,12 @@ static NSString *JRGPercent(CGFloat v) { return [NSString stringWithFormat:@"%.0
     return menu;
 }
 
-- (IBAction)setGlassStyle:(id)sender {
-    [[NSUserDefaults standardUserDefaults] setObject:@"glass" forKey:JRGDockStyleKey];
-    [self applyStyle];
-}
-
-- (IBAction)setBareStyle:(id)sender {
-    [[NSUserDefaults standardUserDefaults] setObject:@"bare" forKey:JRGDockStyleKey];
-    [self applyStyle];
-}
-
-- (IBAction)toggleKeepOnTop:(id)sender {
-    NSUserDefaults *d = [NSUserDefaults standardUserDefaults];
-    [d setBool:![d boolForKey:JRGDockKeepOnTopKey] forKey:JRGDockKeepOnTopKey];
-    [self applyStyle];
-}
+- (IBAction)setGlassStyle:(id)sender  { [JRGSettings shared].glass = YES; }
+- (IBAction)setBareStyle:(id)sender   { [JRGSettings shared].glass = NO; }
+- (IBAction)toggleKeepOnTop:(id)sender { [JRGSettings shared].keepOnTop = ![JRGSettings shared].keepOnTop; }
 
 - (IBAction)resetPosition:(id)sender {
-    [[NSUserDefaults standardUserDefaults] setDouble:12 forKey:JRGDockOffsetXKey];
+    [JRGSettings shared].offsetX = 12;
     [self positionStrip];
 }
 
@@ -850,8 +907,10 @@ static NSString *JRGPercent(CGFloat v) { return [NSString stringWithFormat:@"%.0
 
     NSDictionary *head = @{NSFontAttributeName: [NSFont systemFontOfSize:11 weight:NSFontWeightSemibold], NSForegroundColorAttributeName: c1, NSKernAttributeName: @(0.6)};
     NSDictionary *meta = @{NSFontAttributeName: [NSFont systemFontOfSize:11], NSForegroundColorAttributeName: [NSColor colorWithWhite:1 alpha:0.55]};
-    [JRGMetricName(m) drawAtPoint:NSMakePoint(pad, 14) withAttributes:head];
-    NSString *span = @"Last 5 minutes";
+    NSString *title = (m == JRGMetricTemperature) ? @"TEMPERATURE" : JRGMetricName(m);
+    [title drawAtPoint:NSMakePoint(pad, 14) withAttributes:head];
+    NSInteger minutes = [JRGSettings shared].historyMinutes;
+    NSString *span = minutes == 1 ? @"Last minute" : [NSString stringWithFormat:@"Last %ld minutes", (long)minutes];
     CGFloat spanW = [span sizeWithAttributes:meta].width;
     [span drawAtPoint:NSMakePoint(w - pad - spanW, 14) withAttributes:meta];
 
@@ -859,16 +918,17 @@ static NSString *JRGPercent(CGFloat v) { return [NSString stringWithFormat:@"%.0
     [[NSColor colorWithWhite:1 alpha:0.06] setFill];
     [[NSBezierPath bezierPathWithRoundedRect:chart xRadius:6 yRadius:6] fill];
     NSRect inner = NSInsetRect(chart, 4, 5);
-    NSArray *v1 = JRGOrderedValues(c.history[m][0]);
+    NSArray *v1 = [c valuesFor:m series:0];
     if (JRGMetricIsDual(m)) {
-        NSArray *v2 = JRGOrderedValues(c.history[m][1]);
-        CGFloat peak = MAX(10 * 1024, MAX(JRGPeak(c.history[m][0]), JRGPeak(c.history[m][1])));
+        NSArray *v2 = [c valuesFor:m series:1];
+        CGFloat peak = MAX(10 * 1024, MAX(JRGPeakOf(v1), JRGPeakOf(v2)));
         NSRect upper = NSMakeRect(inner.origin.x, inner.origin.y, inner.size.width, floor(inner.size.height / 2) - 0.5);
         NSRect lower = NSMakeRect(inner.origin.x, NSMaxY(upper) + 1, inner.size.width, upper.size.height);
-        JRGDrawChart(v1, peak, upper, c1, NO, 1.5);
-        JRGDrawChart(v2, peak, lower, c2, YES, 1.5);
+        JRGDrawChart(v1, 0, peak, upper, c1, NO, 1.5);
+        JRGDrawChart(v2, 0, peak, lower, c2, YES, 1.5);
     } else {
-        JRGDrawChart(v1, (m == JRGMetricMemory) ? 1.0 : 100.0, inner, c1, NO, 1.5);
+        CGFloat lo, hi; JRGChartRange(m, &lo, &hi);
+        JRGDrawChart(v1, lo, hi, inner, c1, NO, 1.5);
     }
 
     NSDictionary *lab = @{NSFontAttributeName: [NSFont systemFontOfSize:11], NSForegroundColorAttributeName: [NSColor colorWithWhite:1 alpha:0.6]};
