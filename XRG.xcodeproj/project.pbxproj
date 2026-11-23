@@ -11,6 +11,7 @@
 		271FA60F15AC79A100E16233 /* Online Help in Resources */ = {isa = PBXBuildFile; fileRef = 271FA60E15AC79A100E16233 /* Online Help */; };
 		273ECE6A15740DE700E65D82 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 273ECE6915740DE700E65D82 /* Cocoa.framework */; };
 		273ECEFA15740EAF00E65D82 /* XRGAppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 273ECE8D15740EAF00E65D82 /* XRGAppDelegate.m */; };
+		C27BDAC80842248E4AE4248E /* XRGDockStrip.m in Sources */ = {isa = PBXBuildFile; fileRef = 506D6EF3E432AA591B5CA2C9 /* XRGDockStrip.m */; };
 		273ECEFB15740EAF00E65D82 /* XRGPrefController.m in Sources */ = {isa = PBXBuildFile; fileRef = 273ECE8F15740EAF00E65D82 /* XRGPrefController.m */; };
 		273ECEFD15740EAF00E65D82 /* XRGGraphWindow.m in Sources */ = {isa = PBXBuildFile; fileRef = 273ECE9315740EAF00E65D82 /* XRGGraphWindow.m */; };
 		273ECEFF15740EAF00E65D82 /* XRGCPUMiner.m in Sources */ = {isa = PBXBuildFile; fileRef = 273ECE9815740EAF00E65D82 /* XRGCPUMiner.m */; };
@@ -79,6 +80,8 @@
 		273ECE6E15740DE700E65D82 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		273ECE8C15740EAF00E65D82 /* XRGAppDelegate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = XRGAppDelegate.h; sourceTree = "<group>"; };
 		273ECE8D15740EAF00E65D82 /* XRGAppDelegate.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = XRGAppDelegate.m; sourceTree = "<group>"; };
+		CAAC8B9BC122AA006D5491A0 /* XRGDockStrip.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = XRGDockStrip.h; sourceTree = "<group>"; };
+		506D6EF3E432AA591B5CA2C9 /* XRGDockStrip.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = XRGDockStrip.m; sourceTree = "<group>"; };
 		273ECE8E15740EAF00E65D82 /* XRGPrefController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = XRGPrefController.h; sourceTree = "<group>"; };
 		273ECE8F15740EAF00E65D82 /* XRGPrefController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = XRGPrefController.m; sourceTree = "<group>"; };
 		273ECE9215740EAF00E65D82 /* XRGGraphWindow.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = XRGGraphWindow.h; sourceTree = "<group>"; };
@@ -255,6 +258,8 @@
 			children = (
 				273ECE8C15740EAF00E65D82 /* XRGAppDelegate.h */,
 				273ECE8D15740EAF00E65D82 /* XRGAppDelegate.m */,
+				CAAC8B9BC122AA006D5491A0 /* XRGDockStrip.h */,
+				506D6EF3E432AA591B5CA2C9 /* XRGDockStrip.m */,
 				273ECE8E15740EAF00E65D82 /* XRGPrefController.h */,
 				273ECE8F15740EAF00E65D82 /* XRGPrefController.m */,
 				273ECE9215740EAF00E65D82 /* XRGGraphWindow.h */,
@@ -490,6 +495,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				273ECEFA15740EAF00E65D82 /* XRGAppDelegate.m in Sources */,
+				C27BDAC80842248E4AE4248E /* XRGDockStrip.m in Sources */,
 				273ECEFB15740EAF00E65D82 /* XRGPrefController.m in Sources */,
 				27AB7CFE2558F031002F6773 /* XRGSensorViewController.m in Sources */,
 				273ECEFD15740EAF00E65D82 /* XRGGraphWindow.m in Sources */,

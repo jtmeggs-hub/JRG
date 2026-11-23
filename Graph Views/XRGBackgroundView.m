@@ -25,6 +25,7 @@
 //
 
 #import "XRGBackgroundView.h"
+#import "XRGDockStrip.h"
 #import "XRGGraphWindow.h"
 #import "XRGGenericView.h"
 #import "XRGAppDelegate.h"
@@ -444,7 +445,7 @@
     NSMenu *myMenu = [[NSMenu alloc] initWithTitle:@"Background View"];
     NSMenuItem *tMI;
 
-    tMI = [[NSMenuItem alloc] initWithTitle:@"About XRG" action:@selector(openAboutBox:) keyEquivalent:@""];
+    tMI = [[NSMenuItem alloc] initWithTitle:@"About JRG" action:@selector(openAboutBox:) keyEquivalent:@""];
     [myMenu addItem:tMI];
 
     tMI = [[NSMenuItem alloc] initWithTitle:@"Preferences..." action:@selector(openPreferences:) keyEquivalent:@""];
@@ -452,21 +453,26 @@
 
     tMI = [[NSMenuItem alloc] initWithTitle:@"JRG Help" action:@selector(openHelp:) keyEquivalent:@""];
     [myMenu addItem:tMI];
+
+    [myMenu addItem:[NSMenuItem separatorItem]];
+    tMI = [[NSMenuItem alloc] initWithTitle:@"Switch to Dock Strip" action:@selector(switchToDockStrip:) keyEquivalent:@""];
+    tMI.target = [XRGDockStripController shared];
+    [myMenu addItem:tMI];
     
     [myMenu addItem:[NSMenuItem separatorItem]];
 
     if (uiIsHidden) {
-        tMI = [[NSMenuItem alloc] initWithTitle:@"Show XRG Dock Icon" action:@selector(showUI:) keyEquivalent:@""];
+        tMI = [[NSMenuItem alloc] initWithTitle:@"Show JRG Dock Icon" action:@selector(showUI:) keyEquivalent:@""];
         [myMenu addItem:tMI];
     }
     else {
-        tMI = [[NSMenuItem alloc] initWithTitle:@"Hide XRG Dock Icon (After Restart)" action:@selector(hideUI:) keyEquivalent:@""];
+        tMI = [[NSMenuItem alloc] initWithTitle:@"Hide JRG Dock Icon (After Restart)" action:@selector(hideUI:) keyEquivalent:@""];
         [myMenu addItem:tMI];
     }
 
     [myMenu addItem:[NSMenuItem separatorItem]];
     
-    tMI = [[NSMenuItem alloc] initWithTitle:@"Quit XRG" action:@selector(quit:) keyEquivalent:@""];
+    tMI = [[NSMenuItem alloc] initWithTitle:@"Quit JRG" action:@selector(quit:) keyEquivalent:@""];
     [myMenu addItem:tMI];
     
     return myMenu;

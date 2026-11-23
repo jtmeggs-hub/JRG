@@ -25,6 +25,7 @@
 //
 
 #import "XRGAppDelegate.h"
+#import "XRGDockStrip.h"
 #import "XRGGraphWindow.h"
 
 @implementation XRGAppDelegate
@@ -106,6 +107,13 @@
 - (void)applicationDidFinishLaunching:(NSNotification *)aNotification {
     NSString *appName = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleName"] ?: @"JRG";
     [self renameMenu:[NSApp mainMenu] toAppName:appName];
+
+    // JRG: show the Dock strip layout once launch finishes (it hides the classic window).
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if ([XRGDockStripController dockLayoutSelected]) {
+            [[XRGDockStripController shared] showDockStrip];
+        }
+    });
 
 	[self.xrgGraphWindow.moduleManager windowChangedToSize:self.xrgGraphWindow.frame.size];
 	
