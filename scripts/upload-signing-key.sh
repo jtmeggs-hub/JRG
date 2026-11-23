@@ -9,5 +9,5 @@ BIN="$HOME/Developer/JRG-build/SourcePackages/artifacts/sparkle/Sparkle/bin"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 "$BIN/generate_keys" --account JRG -x "$TMP/key"
-gh secret set SPARKLE_PRIVATE_KEY < "$TMP/key"
+gh secret set SPARKLE_PRIVATE_KEY --repo "$(gh repo view "$(git remote get-url origin)" --json nameWithOwner -q .nameWithOwner)" < "$TMP/key"
 echo "SPARKLE_PRIVATE_KEY is set."
