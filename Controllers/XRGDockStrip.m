@@ -8,6 +8,7 @@
 #import "XRGDockStrip.h"
 #import "JRGSettings.h"
 #import "JRGSettingsWindow.h"
+#import "XRGAppDelegate.h"
 #import "XRGCPUMiner.h"
 #import "XRGGPUMiner.h"
 #import "XRGMemoryMiner.h"
@@ -201,7 +202,7 @@ static void JRGDrawChart(NSArray<NSNumber *> *values, CGFloat minValue, CGFloat 
 
 @interface JRGStripView : NSView
 @property (weak) XRGDockStripController *controller;
-@property JRGStripLayout *layout;
+@property (nonatomic) JRGStripLayout *layout;
 @property BOOL bare;
 @property BOOL interactive;   // NO for the preview in Settings
 @end
@@ -504,6 +505,12 @@ static void JRGDrawChart(NSArray<NSNumber *> *values, CGFloat minValue, CGFloat 
 // Dragging moves the strip sideways only; it stays in the Dock's band.
 - (void)windowDidMove:(NSNotification *)note {
     if (self.adjustingPosition || note.object != self.stripWindow) return;
+    // Only a drag with the mouse counts. macOS also moves windows itself (display sleep,
+    // resolution or arrangement changes); saving those would lose the spot you picked.
+    if (([NSEvent pressedMouseButtons] & 1) == 0) {
+        [self positionStrip];
+        return;
+    }
     NSRect sf = [self dockScreen].frame;
     [JRGSettings shared].offsetX = NSMinX(self.stripWindow.frame) - NSMinX(sf);
     [self positionStrip];
@@ -877,6 +884,9 @@ static NSString *JRGDegrees(CGFloat v) { return [NSString stringWithFormat:@"%.0
     [menu addItem:[NSMenuItem separatorItem]];
 
     [menu addItemWithTitle:@"Settings…" action:@selector(showSettings:) keyEquivalent:@""].target = self;
+    if ([(XRGAppDelegate *)NSApp.delegate updaterController]) {
+        [menu addItemWithTitle:@"Check for Updates…" action:@selector(checkForUpdates:) keyEquivalent:@""].target = NSApp.delegate;
+    }
     [menu addItem:[NSMenuItem separatorItem]];
     [menu addItemWithTitle:@"Quit JRG" action:@selector(terminate:) keyEquivalent:@""].target = NSApp;
     return menu;

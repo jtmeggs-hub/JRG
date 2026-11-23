@@ -9,6 +9,8 @@
 #import "JRGSettings.h"
 #import "XRGDockStrip.h"
 #import <ServiceManagement/ServiceManagement.h>
+#import <Sparkle/Sparkle.h>
+#import "XRGAppDelegate.h"
 
 static const CGFloat JRGSettingsWidth = 600;
 static const CGFloat JRGSettingsPad = 22;
@@ -86,7 +88,7 @@ static NSColor *JRGSoftText(void)   { return [NSColor colorWithSRGBRed:0.80 gree
 @property NSArray<NSColorWell *> *colorWells;
 @property NSSegmentedControl *styleControl, *historyControl, *sizeControl, *unitsControl, *bitsControl;
 @property NSArray<NSButton *> *metricBoxes;
-@property NSSwitch *keepOnTopSwitch, *loginSwitch;
+@property NSSwitch *keepOnTopSwitch, *loginSwitch, *autoUpdateSwitch;
 @property NSTextField *loginNote;
 @end
 
@@ -322,8 +324,23 @@ static NSColor *JRGSoftText(void)   { return [NSColor colorWithSRGBRed:0.80 gree
     [stack addArrangedSubview:self.loginNote];
     [stack setCustomSpacing:16 afterView:self.loginNote];
 
+    SPUUpdater *updater = [self updater];
+    self.autoUpdateSwitch = [self switchWithAction:@selector(autoUpdateChanged:)];
+    self.autoUpdateSwitch.enabled = (updater != nil);
+    add([self row:@"Check for updates automatically" control:self.autoUpdateSwitch], 0);
+
     NSString *version = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"";
-    NSTextField *credit = [self label:[NSString stringWithFormat:@"JRG %@  ·  Based on XRG by Gaucho Software  ·  GPL v2", version]
+    NSString *build = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleVersion"] ?: @"";
+    NSString *versionText = updater ? [NSString stringWithFormat:@"JRG %@ (%@)", version, build]
+                                    : [NSString stringWithFormat:@"JRG %@ (development build, updates are off)", version];
+    NSButton *checkNow = [NSButton buttonWithTitle:@"Check now" target:NSApp.delegate action:@selector(checkForUpdates:)];
+    checkNow.controlSize = NSControlSizeSmall;
+    checkNow.enabled = (updater != nil);
+    NSView *versionRow = [self row:versionText control:checkNow];
+    ((NSTextField *)versionRow.subviews.firstObject).textColor = JRGSoftText();
+    add(versionRow, 16);
+
+    NSTextField *credit = [self label:@"Based on XRG by Gaucho Software (Mike Piatek-Jimenez)  ·  Free software under the GNU GPL v2"
                                  size:11 color:JRGMutedText() weight:NSFontWeightRegular];
     [stack addArrangedSubview:credit];
 
@@ -382,6 +399,7 @@ static NSColor *JRGSoftText(void)   { return [NSColor colorWithSRGBRed:0.80 gree
     self.keepOnTopSwitch.state = s.keepOnTop ? NSControlStateValueOn : NSControlStateValueOff;
     self.unitsControl.selectedSegment = s.decimalUnits ? 0 : 1;
     self.bitsControl.selectedSegment = s.networkInBits ? 1 : 0;
+    self.autoUpdateSwitch.state = [self updater].automaticallyChecksForUpdates ? NSControlStateValueOn : NSControlStateValueOff;
     [self refreshLoginState];
 }
 
@@ -415,6 +433,16 @@ static NSColor *JRGSoftText(void)   { return [NSColor colorWithSRGBRed:0.80 gree
         return;
     }
     [s setMetric:b.tag enabled:on];
+}
+
+#pragma mark Updates
+
+- (SPUUpdater *)updater {
+    return [(XRGAppDelegate *)NSApp.delegate updaterController].updater;
+}
+
+- (void)autoUpdateChanged:(NSSwitch *)sw {
+    [self updater].automaticallyChecksForUpdates = (sw.state == NSControlStateValueOn);
 }
 
 #pragma mark Launch at login

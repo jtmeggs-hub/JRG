@@ -1,0 +1,58 @@
+# Builds JRG and publishes a GitHub release whenever a version tag (v1.2, v1.2.1, ...) is pushed.
+# The release carries JRG.zip plus appcast.xml, which installed copies of JRG check once a day
+# (SUFeedURL points at releases/latest/download/appcast.xml).
+#
+# Needs one repository secret: SPARKLE_PRIVATE_KEY, the EdDSA key that signs each update.
+# Create it once with scripts/upload-signing-key.sh.
+
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # the build number is the commit count
+
+      - name: Use the newest Xcode
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)" && xcodebuild -version
+
+      - name: Build
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          BUILD="$(git rev-list --count HEAD)"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "BUILD=$BUILD" >> "$GITHUB_ENV"
+          xcodebuild -project XRG.xcodeproj -scheme XRG -configuration Release \
+            -derivedDataPath build \
+            MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$BUILD" \
+            build | tail -20
+          test -d build/Build/Products/Release/JRG.app
+
+      - name: Package
+        run: ditto -c -k --sequesterRsrc --keepParent build/Build/Products/Release/JRG.app JRG.zip
+
+      - name: Sign the update and write the appcast
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          test -n "$SPARKLE_PRIVATE_KEY" || { echo "SPARKLE_PRIVATE_KEY secret is missing"; exit 1; }
+          SIGN_UPDATE="build/SourcePackages/artifacts/sparkle/Sparkle/bin/sign_update"
+          SIGNATURE="$(echo "$SPARKLE_PRIVATE_KEY" | "$SIGN_UPDATE" --ed-key-file - JRG.zip)"
+          scripts/make-appcast.sh "$VERSION" "$BUILD" \
+            "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/JRG.zip" \
+            "$SIGNATURE" > appcast.xml
+          cat appcast.xml
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" JRG.zip appcast.xml --title "JRG $VERSION" --generate-notes

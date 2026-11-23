@@ -29,6 +29,7 @@
 		93C915F32550346600220EC5 /* Accelerate.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 93C915F22550346600220EC5 /* Accelerate.framework */; };
 		A1B2C3D40000000000000011 /* JRGSettings.m in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000000000001 /* JRGSettings.m */; };
 		A1B2C3D40000000000000012 /* JRGSettingsWindow.m in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000000000002 /* JRGSettingsWindow.m */; };
+		5A1E00000000000000000003 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 5A1E00000000000000000002 /* Sparkle */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -93,6 +94,7 @@
 				93C915F32550346600220EC5 /* Accelerate.framework in Frameworks */,
 				273ECF661574145100E65D82 /* IOKit.framework in Frameworks */,
 				273ECE6A15740DE700E65D82 /* Cocoa.framework in Frameworks */,
+				5A1E00000000000000000003 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -253,6 +255,9 @@
 			);
 			name = XRG;
 			productName = XRG;
+			packageProductDependencies = (
+				5A1E00000000000000000002 /* Sparkle */,
+			);
 			productReference = 273ECE6515740DE700E65D82 /* XRG.app */;
 			productType = "com.apple.product-type.application";
 		};
@@ -286,6 +291,9 @@
 				Base,
 			);
 			mainGroup = 273ECE5A15740DE700E65D82;
+			packageReferences = (
+				5A1E00000000000000000001 /* XCRemoteSwiftPackageReference "Sparkle" */,
+			);
 			productRefGroup = 273ECE6615740DE700E65D82 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -439,12 +447,16 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
-				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_HARDENED_RUNTIME = NO;
 				CLANG_ENABLE_MODULES = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "Other Sources/XRG-Prefix.pch";
 				GCC_VERSION = "";
 				INFOPLIST_FILE = "XRG-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.jordanmeggs.JRG-dev";
@@ -462,12 +474,16 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
-				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_HARDENED_RUNTIME = NO;
 				CLANG_ENABLE_MODULES = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "Other Sources/XRG-Prefix.pch";
 				GCC_VERSION = "";
 				INFOPLIST_FILE = "XRG-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.jordanmeggs.JRG;
@@ -498,6 +514,24 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+/* Begin XCRemoteSwiftPackageReference section */
+		5A1E00000000000000000001 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.6.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		5A1E00000000000000000002 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5A1E00000000000000000001 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 273ECE5C15740DE700E65D82 /* Project object */;
 }

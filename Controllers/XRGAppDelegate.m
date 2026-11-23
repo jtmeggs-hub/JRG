@@ -7,8 +7,22 @@
 
 #import "XRGAppDelegate.h"
 #import "XRGDockStrip.h"
+#import <Sparkle/Sparkle.h>
 
-@implementation XRGAppDelegate
+@implementation XRGAppDelegate {
+    SPUStandardUpdaterController *_updaterController;
+}
+
+- (SPUStandardUpdaterController *)updaterController { return _updaterController; }
+
++ (BOOL)isDevelopmentBuild {
+    return [[NSBundle mainBundle].bundleIdentifier hasSuffix:@"-dev"];
+}
+
+- (IBAction)checkForUpdates:(id)sender {
+    [NSApp activateIgnoringOtherApps:YES];
+    [_updaterController checkForUpdates:sender];
+}
 
 - (NSString *)appName {
     return [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleName"] ?: @"JRG";
@@ -24,6 +38,7 @@
     [appMenu addItemWithTitle:[@"About " stringByAppendingString:name] action:@selector(orderFrontStandardAboutPanel:) keyEquivalent:@""];
     [appMenu addItem:[NSMenuItem separatorItem]];
     [appMenu addItemWithTitle:@"Settings…" action:@selector(showSettings:) keyEquivalent:@","].target = self;
+    [appMenu addItemWithTitle:@"Check for Updates…" action:@selector(checkForUpdates:) keyEquivalent:@""].target = self;
     [appMenu addItem:[NSMenuItem separatorItem]];
     [appMenu addItemWithTitle:[@"Quit " stringByAppendingString:name] action:@selector(terminate:) keyEquivalent:@"q"];
     [main addItemWithTitle:name action:nil keyEquivalent:@""].submenu = appMenu;
@@ -43,6 +58,10 @@
 
 - (void)applicationWillFinishLaunching:(NSNotification *)note {
     [self buildMainMenu];
+    if (![XRGAppDelegate isDevelopmentBuild]) {
+        // Checks the GitHub appcast once a day (SUScheduledCheckInterval) and offers new releases.
+        _updaterController = [[SPUStandardUpdaterController alloc] initWithStartingUpdater:YES updaterDelegate:nil userDriverDelegate:nil];
+    }
 }
 
 - (void)applicationDidFinishLaunching:(NSNotification *)note {

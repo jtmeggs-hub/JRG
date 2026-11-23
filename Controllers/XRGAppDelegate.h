@@ -7,7 +7,15 @@
 
 #import <Cocoa/Cocoa.h>
 
+@class SPUStandardUpdaterController;
+
 @interface XRGAppDelegate : NSObject <NSApplicationDelegate>
+
+/// Sparkle's updater. nil in development builds, which shouldn't replace themselves
+/// with a release.
+@property (readonly) SPUStandardUpdaterController *updaterController;
+
+- (IBAction)checkForUpdates:(id)sender;
 
 - (IBAction)showSettings:(id)sender;
 

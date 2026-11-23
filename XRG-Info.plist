@@ -32,5 +32,13 @@
 	<string>JRG © 2026 Jordan Meggs. Based on XRG © 2002-2023 Gaucho Software, LLC (Mike Piatek-Jimenez). GPL v2.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://github.com/jtmeggs-hub/JRG/releases/latest/download/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>nxPfEmwLxyvf4LTvYRzJHHnHSAQvCevTKR7lOOAZAOs=</string>
+	<key>SUScheduledCheckInterval</key>
+	<integer>86400</integer>
 </dict>
 </plist>

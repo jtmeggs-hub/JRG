@@ -18,3 +18,8 @@ build/
 build.log
 docs/prefs-backup-*.plist
 build-release.log
+!XRG.xcodeproj/project.xcworkspace/
+XRG.xcodeproj/project.xcworkspace/*
+!XRG.xcodeproj/project.xcworkspace/xcshareddata/
+XRG.xcodeproj/project.xcworkspace/xcshareddata/*
+!XRG.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
