@@ -88,7 +88,7 @@ static NSColor *JRGSoftText(void)   { return [NSColor colorWithSRGBRed:0.80 gree
 @property NSArray<NSColorWell *> *colorWells;
 @property NSSegmentedControl *styleControl, *historyControl, *sizeControl, *unitsControl, *bitsControl;
 @property NSArray<NSButton *> *metricBoxes;
-@property NSSwitch *keepOnTopSwitch, *loginSwitch, *autoUpdateSwitch;
+@property NSSwitch *keepOnTopSwitch, *loginSwitch, *autoUpdateSwitch, *dockSwitch;
 @property NSTextField *loginNote;
 @end
 
@@ -317,6 +317,8 @@ static NSColor *JRGSoftText(void)   { return [NSColor colorWithSRGBRed:0.80 gree
 
     // General
     add([self sectionHeader:@"General"], 6);
+    self.dockSwitch = [self switchWithAction:@selector(dockChanged:)];
+    add([self row:@"Show in Dock and menu bar" control:self.dockSwitch], 0);
     self.loginSwitch = [self switchWithAction:@selector(loginChanged:)];
     add([self row:@"Launch at login" control:self.loginSwitch], 0);
     self.loginNote = [self label:@"" size:11 color:JRGMutedText() weight:NSFontWeightRegular];
@@ -396,6 +398,7 @@ static NSColor *JRGSoftText(void)   { return [NSColor colorWithSRGBRed:0.80 gree
     NSArray *minutes = @[@1, @5, @15, @30];
     self.historyControl.selectedSegment = MAX(0, (NSInteger)[minutes indexOfObject:@(s.historyMinutes)]);
     self.sizeControl.selectedSegment = s.stripSize;
+    self.dockSwitch.state = s.showInDock ? NSControlStateValueOn : NSControlStateValueOff;
     self.keepOnTopSwitch.state = s.keepOnTop ? NSControlStateValueOn : NSControlStateValueOff;
     self.unitsControl.selectedSegment = s.decimalUnits ? 0 : 1;
     self.bitsControl.selectedSegment = s.networkInBits ? 1 : 0;
@@ -420,6 +423,15 @@ static NSColor *JRGSoftText(void)   { return [NSColor colorWithSRGBRed:0.80 gree
 - (void)styleChanged:(NSSegmentedControl *)c   { [JRGSettings shared].glass = (c.selectedSegment == 0); }
 - (void)historyChanged:(NSSegmentedControl *)c { [JRGSettings shared].historyMinutes = [@[@1, @5, @15, @30][c.selectedSegment] integerValue]; }
 - (void)sizeChanged:(NSSegmentedControl *)c    { [JRGSettings shared].stripSize = c.selectedSegment; }
+- (void)dockChanged:(NSSwitch *)s {
+    [JRGSettings shared].showInDock = (s.state == NSControlStateValueOn);
+    // Switching to a background app deactivates JRG; keep Settings in front.
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self.window makeKeyAndOrderFront:nil];
+        [NSApp activateIgnoringOtherApps:YES];
+    });
+}
+
 - (void)keepOnTopChanged:(NSSwitch *)s         { [JRGSettings shared].keepOnTop = (s.state == NSControlStateValueOn); }
 - (void)unitsChanged:(NSSegmentedControl *)c   { [JRGSettings shared].decimalUnits = (c.selectedSegment == 0); }
 - (void)bitsChanged:(NSSegmentedControl *)c    { [JRGSettings shared].networkInBits = (c.selectedSegment == 1); }

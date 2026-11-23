@@ -59,6 +59,9 @@ NSString *JRGColorSlotName(JRGColorSlot slot);
 - (void)setMetric:(JRGMetric)m enabled:(BOOL)enabled;
 - (NSArray<NSNumber *> *)enabledMetrics;          // in display order
 
+// App
+@property (nonatomic) BOOL showInDock;              // NO = background app (no Dock icon, menu bar, or Command-Tab)
+
 // Display
 @property (nonatomic) BOOL decimalUnits;          // YES = 1000-based, like macOS
 @property (nonatomic) BOOL networkInBits;

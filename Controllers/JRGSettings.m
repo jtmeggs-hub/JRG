@@ -18,6 +18,7 @@ static NSString * const kStripSize      = @"JRGStripSize";
 static NSString * const kMetrics        = @"JRGEnabledMetrics";  // array of BOOLs, one per JRGMetric
 static NSString * const kDecimalUnits   = @"JRGDecimalUnits";
 static NSString * const kNetworkBits    = @"JRGNetworkBits";
+static NSString * const kShowInDock     = @"JRGShowInDock";
 static NSString * const kTheme          = @"JRGTheme";
 static NSString * const kCustomColors   = @"JRGCustomColors";    // array of "RRGGBB" strings, one per slot
 
@@ -99,6 +100,7 @@ static NSDictionary<NSString *, NSArray<NSString *> *> *JRGPresets(void) {
         kMetrics: @[@YES, @YES, @YES, @YES, @YES, @NO],
         kDecimalUnits: @YES,
         kNetworkBits: @NO,
+        kShowInDock: @YES,
         kTheme: @"Midnight neon",
     }];
 }
@@ -150,6 +152,11 @@ static NSDictionary<NSString *, NSArray<NSString *> *> *JRGPresets(void) {
     if (out.count == 0) [out addObject:@(JRGMetricCPU)];
     return out;
 }
+
+#pragma mark App
+
+- (BOOL)showInDock { return [self.d boolForKey:kShowInDock]; }
+- (void)setShowInDock:(BOOL)v { [self.d setBool:v forKey:kShowInDock]; [self changed]; }
 
 #pragma mark Display
 

@@ -7,6 +7,7 @@
 
 #import "XRGAppDelegate.h"
 #import "XRGDockStrip.h"
+#import "JRGSettings.h"
 #import <Sparkle/Sparkle.h>
 
 @implementation XRGAppDelegate {
@@ -56,8 +57,24 @@
     [NSApp setMainMenu:main];
 }
 
+/// Regular app (Dock icon, menu bar, Command-Tab) or background app, per Settings.
+- (void)applyActivationPolicy {
+    BOOL dock = [JRGSettings shared].showInDock;
+    NSApplicationActivationPolicy want = dock ? NSApplicationActivationPolicyRegular : NSApplicationActivationPolicyAccessory;
+    if (NSApp.activationPolicy == want) return;
+    [NSApp setActivationPolicy:want];
+    if (dock) [NSApp activateIgnoringOtherApps:YES];   // so the menu bar shows up right away
+}
+
+- (void)settingsChanged:(NSNotification *)note {
+    [self applyActivationPolicy];
+}
+
 - (void)applicationWillFinishLaunching:(NSNotification *)note {
     [self buildMainMenu];
+    [NSApp setActivationPolicy:[JRGSettings shared].showInDock ? NSApplicationActivationPolicyRegular : NSApplicationActivationPolicyAccessory];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(settingsChanged:)
+                                                 name:JRGSettingsDidChangeNotification object:nil];
     if (![XRGAppDelegate isDevelopmentBuild]) {
         // Checks the GitHub appcast once a day (SUScheduledCheckInterval) and offers new releases.
         _updaterController = [[SPUStandardUpdaterController alloc] initWithStartingUpdater:YES updaterDelegate:nil userDriverDelegate:nil];
